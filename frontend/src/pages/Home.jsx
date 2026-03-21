@@ -3,6 +3,7 @@ import Navbar from '../components/landing/Navbar';
 import Hero from '../components/landing/Hero';
 import Features from '../components/landing/Features';
 import HowItWorks from '../components/landing/HowItWorks';
+import PipelineSimulation from '../components/landing/PipelineSimulation';
 import Footer from '../components/landing/Footer';
 
 export default function Home() {
@@ -12,7 +13,7 @@ export default function Home() {
       <Navbar />
 
       <main>
-        {/* Main Hero Section */}
+        {/* Main Hero Section with animated background */}
         <Hero />
         
         {/* Key Features Section */}
@@ -21,6 +22,8 @@ export default function Home() {
         {/* How It Works Steps */}
         <HowItWorks />
         
+        {/* Interactive Interactive Flowchart */}
+        <PipelineSimulation />
       </main>
 
       {/* Footer Area */}

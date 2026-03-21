@@ -1,4 +1,4 @@
-# 🤖 TicketFlow AI - Machine Learning Models Summary
+![alt text](image.png)# 🤖 TicketFlow AI - Machine Learning Models Summary
 
 ## 📊 Overview
 
