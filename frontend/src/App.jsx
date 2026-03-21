@@ -19,6 +19,7 @@ const Analytics   = lazy(() => import("./pages/Analytics"));
 const KnowledgeBase= lazy(() => import("./pages/KnowledgeBase"));
 const AdminPanel  = lazy(() => import("./pages/AdminPanel"));
 const MyTickets   = lazy(() => import("./pages/MyTickets"));
+const Home        = lazy(() => import("./pages/Home"));
 
 // Route guards
 function PrivateRoute({ children, roles }) {
@@ -43,37 +44,39 @@ export default function App() {
       <Suspense fallback={<Loader fullscreen />}>
         <Routes>
 
+          {/* Public landing page */}
+          <Route path="/" element={<Home />} />
+
           {/* Public routes */}
           <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
           {/* Protected routes inside Layout */}
-          <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard"    element={<Dashboard />} />
-            <Route path="submit"       element={<SubmitTicket />} />
-            <Route path="tickets/:id"  element={<TicketDetail />} />
-            <Route path="my-tickets"   element={<MyTickets />} />
+          <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
+            <Route path="/dashboard"    element={<Dashboard />} />
+            <Route path="/submit"       element={<SubmitTicket />} />
+            <Route path="/tickets/:id"  element={<TicketDetail />} />
+            <Route path="/my-tickets"   element={<MyTickets />} />
 
             {/* Agent-only */}
-            <Route path="queue"        element={
+            <Route path="/queue"        element={
               <PrivateRoute roles={["agent","admin","senior_engineer"]}>
                 <AgentQueue />
               </PrivateRoute>
             } />
 
             {/* Admin-only */}
-            <Route path="analytics"    element={
+            <Route path="/analytics"    element={
               <PrivateRoute roles={["admin","agent","senior_engineer"]}>
                 <Analytics />
               </PrivateRoute>
             } />
-            <Route path="knowledge"    element={
+            <Route path="/knowledge"    element={
               <PrivateRoute roles={["admin","agent","senior_engineer"]}>
                 <KnowledgeBase />
               </PrivateRoute>
             } />
-            <Route path="admin"        element={
+            <Route path="/admin"        element={
               <PrivateRoute roles={["admin"]}>
                 <AdminPanel />
               </PrivateRoute>
