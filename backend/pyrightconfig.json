@@ -1,0 +1,10 @@
+{
+  "pythonPath": "C:/Users/acer/AppData/Local/Programs/Python/Python311/python.exe",
+  "venvPath": "C:/Users/acer/AppData/Local/Programs/Python/Python311",
+  "include": ["."],
+  "exclude": ["ml/artifacts", "__pycache__"],
+  "typeCheckingMode": "off",
+  "useLibraryCodeForTypes": true,
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false
+}

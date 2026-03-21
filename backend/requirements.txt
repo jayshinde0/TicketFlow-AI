@@ -1,0 +1,70 @@
+# ─── Web Framework ────────────────────────────────────────────────────
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+python-multipart==0.0.9
+aiofiles==23.2.1
+httpx==0.27.0
+
+# ─── Database ─────────────────────────────────────────────────────────
+motor==3.4.0
+pymongo==4.7.2
+
+# ─── Data Validation ──────────────────────────────────────────────────
+pydantic==2.7.0
+pydantic-settings==2.3.0
+email-validator==2.1.1
+
+# ─── Authentication ───────────────────────────────────────────────────
+python-jose[cryptography]==3.3.0
+bcrypt==4.1.3
+passlib[bcrypt]==1.7.4
+
+# ─── ML / AI Core ─────────────────────────────────────────────────────
+scikit-learn==1.5.0
+imbalanced-learn==0.12.0
+joblib==1.4.0
+numpy==1.26.4
+pandas==2.2.2
+scipy==1.13.0
+
+# ─── NLP ──────────────────────────────────────────────────────────────
+sentence-transformers==3.0.0
+# spaCy 3.8.x dropped the typer<0.10 constraint — resolves typer conflict
+spacy==3.8.4
+nltk==3.8.1
+langdetect==1.0.9
+deep-translator==1.11.4
+
+# ─── Transformers / Sentiment ─────────────────────────────────────────
+transformers==4.41.0
+torch==2.3.0
+tokenizers==0.19.1
+
+# ─── Vector Database ──────────────────────────────────────────────────
+# chromadb 0.5.23 — stable patch release compatible with typer>=0.9
+chromadb==0.5.23
+
+# ─── Explainability ───────────────────────────────────────────────────
+lime==0.2.0.1
+
+# ─── Background Tasks ─────────────────────────────────────────────────────────
+# Uses FastAPI built-in BackgroundTasks — no Celery or Redis broker needed.
+
+# ─── Scheduling ───────────────────────────────────────────────────────
+apscheduler==3.10.4
+
+# ─── WebSocket (Socket.io) ────────────────────────────────────────────
+python-socketio==5.11.2
+
+# ─── Image / OCR ──────────────────────────────────────────────────────
+pytesseract==0.3.10
+Pillow==10.3.0
+
+# ─── Plotting (for ML evaluation) ────────────────────────────────────
+matplotlib==3.9.0
+seaborn==0.13.2
+
+# ─── Utilities ────────────────────────────────────────────────────────
+python-dotenv==1.0.1
+loguru==0.7.2
+tenacity==8.3.0

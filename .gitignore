@@ -1,0 +1,52 @@
+# Python
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Environment variables
+backend/.env
+frontend/.env
+
+# ML artifacts and data
+backend/ml/artifacts/*.pkl
+backend/ml/artifacts/*.json
+backend/chroma/
+backend/chroma_data/
+
+# Logs
+backend/*.log
+backend/uvicorn_startup.log
+backend/ml_train_log.txt
+
+# Node modules
+frontend/node_modules/
+node_modules/
+
+# Build outputs
+frontend/build/
+frontend/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.bak
