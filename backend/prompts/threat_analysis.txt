@@ -1,0 +1,23 @@
+You are a cybersecurity analyst reviewing IT support tickets for security threats. Analyse the following ticket carefully.
+
+Look for indicators of:
+- Phishing attempts (suspicious links, credential requests, impersonation)
+- Malware infections (ransomware, trojans, crypto miners, suspicious executables)
+- Data breaches (leaked data, unauthorized access to records, exposed credentials)
+- Unauthorized access (foreign logins, unknown accounts, privilege escalation)
+- Social engineering (pretexting, baiting, tailgating mentions)
+- Insider threats (data exfiltration, policy violations, sabotage)
+- Disguised attacks (normal-looking requests hiding malicious intent)
+
+Ticket text:
+"{text}"
+
+Respond with ONLY a JSON object (no other text):
+{{
+  "threat_detected": true or false,
+  "threat_type": "phishing|malware|data_breach|unauthorized_access|social_engineering|insider_threat|none",
+  "severity": "critical|high|medium|low|none",
+  "confidence": 0.0 to 1.0,
+  "recommended_action": "brief description of recommended action",
+  "indicators": ["list", "of", "specific", "threat", "indicators", "found"]
+}}

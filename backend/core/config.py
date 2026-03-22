@@ -183,6 +183,43 @@ class Settings(BaseSettings):
     # ─── Ticket ID prefix ─────────────────────────────────────────────
     TICKET_ID_PREFIX: str = "TKT"
 
+    # ─── HITL Enhancement settings (Phase 1+) ────────────────────────
+    # Higher threshold for sensitive categories
+    BILLING_AUTO_RESOLVE_THRESHOLD: float = 0.92
+    SECURITY_AUTO_RESOLVE_THRESHOLD: float = 1.0  # effectively never auto-resolve
+
+    # Concurrency limits for the AI pipeline
+    MAX_CONCURRENT_PIPELINES: int = 20
+
+    # Department taxonomy
+    DEPARTMENT_TAXONOMY: List[str] = [
+        "NETWORK", "SOFTWARE", "DATABASE",
+        "SECURITY", "BILLING", "HR_FACILITIES",
+    ]
+
+    # Category → Department mapping
+    CATEGORY_TO_DEPARTMENT: Dict[str, str] = {
+        "Network": "NETWORK",
+        "Auth": "SOFTWARE",
+        "Software": "SOFTWARE",
+        "Hardware": "HR_FACILITIES",
+        "Access": "SOFTWARE",
+        "Billing": "BILLING",
+        "Email": "NETWORK",
+        "Security": "SECURITY",
+        "ServiceRequest": "HR_FACILITIES",
+        "Database": "DATABASE",
+    }
+
+    # Escalation chain timeouts (minutes)
+    ESCALATION_L2_TIMEOUT_MINUTES: int = 15
+    ESCALATION_L3_TIMEOUT_MINUTES: int = 30
+
+    # ─── Image upload settings ────────────────────────────────────────
+    MAX_IMAGE_SIZE_MB: int = 5
+    MAX_IMAGES_PER_TICKET: int = 3
+    UPLOAD_DIR: str = "uploads/tickets"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

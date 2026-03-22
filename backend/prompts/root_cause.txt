@@ -1,0 +1,15 @@
+You are an IT operations analyst investigating a spike in support tickets. Analyse the following batch of recent tickets from the same category to identify the root cause.
+
+Category: {category}
+Spike count: {spike_count} tickets in {time_window}
+Recent ticket descriptions:
+{ticket_descriptions}
+
+Respond with ONLY a JSON object (no other text):
+{{
+  "root_cause_hypothesis": "Your best hypothesis for the root cause",
+  "confidence": 0.0 to 1.0,
+  "affected_systems": ["list", "of", "affected", "systems"],
+  "recommended_actions": ["Action 1", "Action 2"],
+  "severity": "critical|high|medium|low"
+}}

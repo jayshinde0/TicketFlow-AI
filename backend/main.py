@@ -53,9 +53,18 @@ async def lifespan(app: FastAPI):
             replace_existing=True,
         )
 
+        # Escalation chain timer check — every 5 minutes
+        from services.escalation_service import escalation_service
+        scheduler.add_job(
+            escalation_service.check_escalations,
+            trigger=IntervalTrigger(minutes=5),
+            id="escalation_chain_check",
+            replace_existing=True,
+        )
+
         scheduler.start()
         app.state.scheduler = scheduler
-        logger.info("APScheduler started: root_cause(5min), sla_check(2min)")
+        logger.info("APScheduler started: root_cause(5min), sla_check(2min), escalation(5min)")
     except ImportError:
         logger.warning("apscheduler not installed. Background jobs disabled.")
 
@@ -138,6 +147,10 @@ from routers.agents import router as agents_router
 from routers.analytics import router as analytics_router
 from routers.admin import router as admin_router
 from routers.websocket import router as ws_router
+from routers.security import router as security_router
+from routers.queue import router as queue_router
+from routers.simulation import router as simulation_router
+from routers.images import router as images_router
 
 app.include_router(auth_router)
 app.include_router(tickets_router)
@@ -146,6 +159,10 @@ app.include_router(agents_router)
 app.include_router(analytics_router)
 app.include_router(admin_router)
 app.include_router(ws_router)
+app.include_router(security_router)
+app.include_router(queue_router)
+app.include_router(simulation_router)
+app.include_router(images_router)
 
 
 # ─── Health endpoints ─────────────────────────────────────────────────

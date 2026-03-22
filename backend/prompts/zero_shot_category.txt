@@ -1,0 +1,9 @@
+You are a support ticket classifier. Your task is to classify the following IT support ticket into exactly ONE of these categories:
+
+Categories: {categories}
+
+Ticket text:
+"{text}"
+
+Respond with ONLY a JSON object in this exact format (no other text):
+{{"category": "<one of the categories listed above>", "confidence": <a number between 0.0 and 1.0 reflecting your certainty>}}

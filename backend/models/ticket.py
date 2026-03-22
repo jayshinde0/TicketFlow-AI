@@ -90,6 +90,40 @@ class LIMEExplanation(BaseModel):
     top_negative_features: List[LIMEFeature]
 
 
+class ThreatAnalysis(BaseModel):
+    """Output of the security threat detection pipeline."""
+    threat_detected: bool = False
+    threat_type: str = "none"  # phishing|malware|data_breach|unauthorized_access|social_engineering|insider_threat|none
+    severity: str = "none"    # critical|high|medium|low|none
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    recommended_action: str = ""
+    indicators: List[str] = []
+    escalation_level: Optional[str] = None  # L1|L2|L3
+    escalation_timer_started: bool = False
+
+
+class SafetyValidation(BaseModel):
+    """Output of the safety guardrails check on generated responses."""
+    is_safe: bool = True
+    violations: List[Dict[str, Any]] = []
+    response_hash: str = ""
+    was_sanitized: bool = False
+
+
+class StageTimings(BaseModel):
+    """Per-stage timing breakdown for the AI pipeline."""
+    preprocessing_ms: Optional[int] = None
+    classification_ms: Optional[int] = None
+    retrieval_ms: Optional[int] = None
+    sentiment_ms: Optional[int] = None
+    confidence_ms: Optional[int] = None
+    sla_prediction_ms: Optional[int] = None
+    routing_ms: Optional[int] = None
+    llm_generation_ms: Optional[int] = None
+    safety_check_ms: Optional[int] = None
+    total_ms: Optional[int] = None
+
+
 class AIAnalysis(BaseModel):
     """Complete output of the AI pipeline for a ticket."""
     # Classification agent output
@@ -139,6 +173,17 @@ class AIAnalysis(BaseModel):
     # Processing metadata
     processing_time_ms: Optional[int] = None
     model_version: Optional[str] = None
+
+    # ── HITL Enhancement fields (Phase 1) ─────────────────────────────
+    time_sensitivity: Optional[str] = None  # IMMEDIATE / SAME_DAY / STANDARD
+    department: Optional[str] = None        # mapped department
+    threat_analysis: Optional[ThreatAnalysis] = None
+    safety_validation: Optional[SafetyValidation] = None
+    stage_timings: Optional[StageTimings] = None
+    zero_shot_used: bool = False            # True if Ollama fallback classification was used
+
+    # ── Image attachments ─────────────────────────────────────────────
+    images: List[Dict[str, Any]] = Field(default_factory=list)  # [{filename, original_name, url, uploaded_at}]
 
 
 class ResolutionData(BaseModel):

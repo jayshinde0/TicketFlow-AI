@@ -30,8 +30,15 @@ from services.duplicate_service import duplicate_service
 from services.explainability_service import explainability_service
 from services.audit_service import audit_service
 from services.notification_service import notification_service
+from services.time_sensitivity_service import time_sensitivity_service
+from services.safety_guardrails_service import safety_guardrails_service
+from services.ollama_provider import ollama_provider
+from services.security_threat_service import security_threat_service
+from services.escalation_service import escalation_service
 from utils.helpers import generate_ticket_id, utcnow, paginate, tier_to_int
 from utils.text_cleaner import count_urgency_keywords
+from core.config import settings
+from ml.data_loader import ALL_CATEGORIES
 
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
 
@@ -62,19 +69,24 @@ async def run_ai_pipeline(
         Complete AI analysis dict ready for MongoDB storage.
     """
     start_time = time.time()
+    stage_timings = {}  # per-stage timing breakdown
+    zero_shot_used = False
     if now is None:
         now = utcnow()
 
     combined_text = f"{subject}. {description}"
 
     # ─── Agent 0: NLP preprocessing ──────────────────────────────────
+    t0 = time.time()
     nlp_result = await nlp_service.preprocess_async(combined_text)
     cleaned_text = nlp_result["cleaned_text"]
     features = nlp_result["features"]
     word_count = features["word_count"]
     urgency_count = features["urgency_keyword_count"]
+    stage_timings["preprocessing_ms"] = int((time.time() - t0) * 1000)
 
     # ─── Sentiment service ────────────────────────────────────────────
+    t0 = time.time()
     try:
         sentiment_result = await asyncio.wait_for(
             sentiment_service.analyze_async(combined_text), timeout=8.0
@@ -85,8 +97,10 @@ async def run_ai_pipeline(
     sentiment_label = sentiment_result["sentiment_label"]
     sentiment_score = sentiment_result["sentiment_score"]
     is_frustrated = sentiment_result["is_frustrated"]
+    stage_timings["sentiment_ms"] = int((time.time() - t0) * 1000)
 
     # ─── Agent 1: Classify category + priority ────────────────────────
+    t0 = time.time()
     classify_result = classifier_service.classify(
         cleaned_text=cleaned_text,
         user_tier=user_tier,
@@ -101,7 +115,29 @@ async def run_ai_pipeline(
     priority = classify_result["priority"]
     priority_confidence = classify_result["priority_confidence"]
 
+    # ─── Zero-shot fallback for low confidence (<0.60) ────────────
+    if model_confidence < settings.CONFIDENCE_LOW_THRESHOLD:
+        logger.info(
+            f"Low ML confidence ({model_confidence:.2f}) — attempting Ollama zero-shot fallback"
+        )
+        try:
+            zs_result = await asyncio.wait_for(
+                ollama_provider.classify_zero_shot(combined_text, ALL_CATEGORIES),
+                timeout=15.0,
+            )
+            if zs_result and zs_result.get("confidence", 0) > model_confidence:
+                category = zs_result["category"]
+                model_confidence = zs_result["confidence"]
+                zero_shot_used = True
+                logger.info(
+                    f"Zero-shot override: category={category}, confidence={model_confidence:.2f}"
+                )
+        except Exception as e:
+            logger.warning(f"Zero-shot fallback failed (non-fatal): {e}")
+    stage_timings["classification_ms"] = int((time.time() - t0) * 1000)
+
     # ─── Agent 2: Retrieve similar tickets ────────────────────────────
+    t0 = time.time()
     try:
         retrieval_result = await asyncio.wait_for(
             retrieval_service.find_similar_tickets(
@@ -115,8 +151,10 @@ async def run_ai_pipeline(
     similar_tickets = retrieval_result["similar_tickets"]
     top_similarity = retrieval_result["top_similarity_score"]
     ticket_embedding = retrieval_result.get("embedding")
+    stage_timings["retrieval_ms"] = int((time.time() - t0) * 1000)
 
     # ─── SLA prediction ───────────────────────────────────────────────
+    t0 = time.time()
     similar_avg_resolution = (
         sum(t.get("resolution_time_hours", 2.0) for t in similar_tickets) / len(similar_tickets)
         if similar_tickets else 2.0
@@ -133,8 +171,21 @@ async def run_ai_pipeline(
         current_queue_length=10,  # would be real-time queue in production
         similar_ticket_avg_hours=similar_avg_resolution,
     )
+    stage_timings["sla_prediction_ms"] = int((time.time() - t0) * 1000)
+
+    # ─── Time sensitivity classification ───────────────────────────────
+    time_sensitivity = time_sensitivity_service.classify(
+        category=category,
+        priority=priority,
+        text=combined_text,
+        sla_breach_probability=sla_breach_prob,
+    )
+
+    # ─── Department mapping ───────────────────────────────────────────
+    department = settings.CATEGORY_TO_DEPARTMENT.get(category, "SOFTWARE")
 
     # ─── Agent 3: HITL routing decision ────────────────────────────────
+    t0 = time.time()
     hitl_result = hitl_service.route(
         category=category,
         model_confidence=model_confidence,
@@ -151,8 +202,10 @@ async def run_ai_pipeline(
     routing_decision = hitl_result["routing_decision"]
     confidence_score = hitl_result["confidence_score"]
     final_priority = hitl_result["priority"]
+    stage_timings["hitl_routing_ms"] = int((time.time() - t0) * 1000)
 
     # ─── Agent 4: LLM response generation ─────────────────────────────
+    t0 = time.time()
     top_solution = (
         similar_tickets[0]["solution"]
         if similar_tickets
@@ -177,8 +230,44 @@ async def run_ai_pipeline(
             "model_used": "fallback",
             "generation_time_ms": 0,
         }
+    stage_timings["llm_generation_ms"] = int((time.time() - t0) * 1000)
+
+    # ─── Safety guardrails check ─────────────────────────────────
+    t0 = time.time()
+    safety_result = {"is_safe": True, "violations": [], "response_hash": "", "sanitized_response": ""}
+    generated_response = llm_result.get("generated_response", "")
+    if generated_response and routing_decision == "AUTO_RESOLVE":
+        safety_result = safety_guardrails_service.validate_response(generated_response)
+        if safety_guardrails_service.should_escalate(safety_result):
+            routing_decision = "SUGGEST_TO_AGENT"
+            logger.warning(
+                f"Safety guardrails escalation for {ticket_id}: "
+                f"{[v['type'] for v in safety_result['violations']]}"
+            )
+        elif not safety_result["is_safe"]:
+            # Use sanitized response instead
+            llm_result["generated_response"] = safety_result["sanitized_response"]
+            logger.info(f"Response sanitized for {ticket_id}: minor violations redacted")
+    stage_timings["safety_check_ms"] = int((time.time() - t0) * 1000)
+
+    # ─── Security threat analysis ───────────────────────────────
+    t0 = time.time()
+    threat_result = await security_threat_service.analyze_threat(
+        text=combined_text,
+        category=category,
+    )
+    if threat_result.get("threat_detected") and threat_result.get("severity") in ("critical", "high"):
+        # Force escalation and start escalation timer
+        if routing_decision == "AUTO_RESOLVE":
+            routing_decision = "ESCALATE_TO_HUMAN"
+        await escalation_service.create_escalation(
+            ticket_id=ticket_id,
+            threat_analysis=threat_result,
+        )
+    stage_timings["threat_analysis_ms"] = int((time.time() - t0) * 1000)
 
     # ─── LIME explainability (async, won't block pipeline) ────────────
+    t0 = time.time()
     lime_result = None
     try:
         lime_result = await explainability_service.explain_async(
@@ -189,20 +278,26 @@ async def run_ai_pipeline(
         )
     except Exception as e:
         logger.debug(f"LIME explanation skipped: {e}")
+    stage_timings["lime_explainability_ms"] = int((time.time() - t0) * 1000)
 
     # ─── Duplicate detection ──────────────────────────────────────────
+    t0 = time.time()
     duplicate_result = await duplicate_service.check_duplicate(
         text=cleaned_text,
         new_ticket_id=ticket_id,
         category=category,
     )
+    stage_timings["duplicate_detection_ms"] = int((time.time() - t0) * 1000)
 
     # ─── SLA estimation ───────────────────────────────────────────────
+    t0 = time.time()
     sla_info = sla_service.get_sla_info(category, final_priority, now)
     estimated_hours = sla_service._get_predictor() and sla_service.predict_breach_probability  # use model if available
+    stage_timings["sla_estimation_ms"] = int((time.time() - t0) * 1000)
 
     # ─── Build AI analysis doc ─────────────────────────────────────────
     processing_time_ms = int((time.time() - start_time) * 1000)
+    stage_timings["total_ms"] = processing_time_ms
 
     # Load current model version
     from pathlib import Path
@@ -237,6 +332,17 @@ async def run_ai_pipeline(
         "lime_explanation": lime_result,
         "processing_time_ms": processing_time_ms,
         "model_version": model_version,
+        # ── HITL Enhancement fields ─────────────────────────────────
+        "time_sensitivity": time_sensitivity,
+        "department": department,
+        "safety_validation": {
+            "is_safe": safety_result["is_safe"],
+            "violations": safety_result["violations"],
+            "response_hash": safety_result.get("response_hash", ""),
+            "was_sanitized": not safety_result["is_safe"],
+        },
+        "stage_timings": stage_timings,
+        "zero_shot_used": zero_shot_used,
     }
 
     # ─── Audit logging ────────────────────────────────────────────────

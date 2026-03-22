@@ -97,3 +97,60 @@ async def assign_ticket(
         raise HTTPException(status_code=404, detail="Ticket not found")
 
     return {"ticket_id": ticket_id, "assigned_to": agent_id}
+
+
+@router.post("/{ticket_id}/auto-assign")
+async def auto_assign_ticket(
+    ticket_id: str,
+    current_user: dict = Depends(require_role("admin")),
+):
+    """
+    Auto-assign a ticket to the best available agent using the assignment algorithm.
+    """
+    from services.assignment_service import assignment_service
+
+    collection = get_tickets_collection()
+    ticket = await collection.find_one({"ticket_id": ticket_id})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    ai = ticket.get("ai_analysis", {})
+    category = ai.get("category", "Software")
+    department = ai.get("department", "SOFTWARE")
+    priority = ai.get("priority", "Medium")
+    threat = ai.get("threat_analysis", {})
+
+    agent = await assignment_service.find_best_agent(
+        department=department,
+        category=category,
+        priority=priority,
+        threat_detected=threat.get("threat_detected", False),
+    )
+
+    if not agent:
+        return {"ticket_id": ticket_id, "assigned": False, "reason": "No agents available"}
+
+    await assignment_service.assign_ticket(ticket_id, agent["user_id"])
+    return {
+        "ticket_id": ticket_id,
+        "assigned": True,
+        "agent_id": agent["user_id"],
+        "agent_name": agent.get("name", ""),
+        "match_score": agent.get("_match_score", 0),
+    }
+
+
+@router.patch("/me/availability")
+async def update_availability(
+    status: str = Query(..., regex="^(ONLINE|BUSY|OFFLINE)$"),
+    current_user: dict = Depends(require_role("agent", "admin")),
+):
+    """Update the current agent's availability status."""
+    from core.database import get_db
+    from utils.helpers import utcnow
+    db = get_db()
+    await db["users"].update_one(
+        {"user_id": current_user["user_id"]},
+        {"$set": {"availability_status": status, "updated_at": utcnow()}},
+    )
+    return {"user_id": current_user["user_id"], "availability_status": status}

@@ -20,6 +20,9 @@ const KnowledgeBase= lazy(() => import("./pages/KnowledgeBase"));
 const AdminPanel  = lazy(() => import("./pages/AdminPanel"));
 const MyTickets   = lazy(() => import("./pages/MyTickets"));
 const Home        = lazy(() => import("./pages/Home"));
+const AdminQueue  = lazy(() => import("./pages/AdminQueue"));
+const AdminSecurity = lazy(() => import("./pages/AdminSecurity"));
+const AdminSimulation = lazy(() => import("./pages/AdminSimulation"));
 
 // Route guards
 function PrivateRoute({ children, roles }) {
@@ -79,6 +82,23 @@ export default function App() {
             <Route path="/admin"        element={
               <PrivateRoute roles={["admin"]}>
                 <AdminPanel />
+              </PrivateRoute>
+            } />
+
+            {/* New HITL admin pages */}
+            <Route path="/admin/queue" element={
+              <PrivateRoute roles={["admin", "agent"]}>
+                <AdminQueue />
+              </PrivateRoute>
+            } />
+            <Route path="/admin/security" element={
+              <PrivateRoute roles={["admin", "agent"]}>
+                <AdminSecurity />
+              </PrivateRoute>
+            } />
+            <Route path="/admin/simulation" element={
+              <PrivateRoute roles={["admin"]}>
+                <AdminSimulation />
               </PrivateRoute>
             } />
           </Route>

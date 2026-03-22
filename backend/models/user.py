@@ -86,6 +86,11 @@ class UserDocument(BaseModel):
     tickets_resolved_total: int = 0
     approval_rate: Optional[float] = None  # % of AI suggestions approved
 
+    # HITL Enhancement: department & expertise
+    department: List[str] = []             # departments agent belongs to
+    expertise_tags: List[str] = []         # fine-grained expertise tags
+    availability_status: str = "ONLINE"    # ONLINE / BUSY / OFFLINE
+
     created_at: datetime
     updated_at: Optional[datetime] = None
     last_login: Optional[datetime] = None
@@ -110,6 +115,9 @@ class UserProfile(BaseModel):
     avg_resolution_time: Optional[float] = None
     tickets_resolved_total: int = 0
     approval_rate: Optional[float] = None
+    department: List[str] = []
+    expertise_tags: List[str] = []
+    availability_status: str = "ONLINE"
     created_at: datetime
     is_active: bool
 
@@ -125,6 +133,9 @@ class AgentSummary(BaseModel):
     avg_resolution_time: Optional[float]
     tickets_resolved_total: int
     approval_rate: Optional[float]
+    department: List[str] = []
+    expertise_tags: List[str] = []
+    availability_status: str = "ONLINE"
     is_active: bool
 
 
@@ -135,3 +146,6 @@ class UserUpdate(BaseModel):
     max_load: Optional[int] = Field(default=None, ge=1, le=100)
     is_active: Optional[bool] = None
     tier: Optional[UserTier] = None
+    department: Optional[List[str]] = None
+    expertise_tags: Optional[List[str]] = None
+    availability_status: Optional[str] = None  # ONLINE / BUSY / OFFLINE

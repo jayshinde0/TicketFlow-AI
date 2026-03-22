@@ -27,15 +27,18 @@ export function NotificationProvider({ children }) {
 
     // Use native WebSocket (FastAPI WebSocket endpoint)
     const ws = new WebSocket(`${WS_URL}/ws/${room}?token=${token}`);
+    wsRef.current = ws;
 
     ws.onopen = () => {
       setConnected(true);
       // Send keep-alive ping every 25s
-      wsRef.current._pingInterval = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "ping" }));
-        }
-      }, 25000);
+      if (wsRef.current) {
+        wsRef.current._pingInterval = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "ping" }));
+          }
+        }, 25000);
+      }
     };
 
     ws.onmessage = (event) => {
@@ -54,8 +57,6 @@ export function NotificationProvider({ children }) {
     };
 
     ws.onerror = () => ws.close();
-
-    wsRef.current = ws;
   }, [user]);
 
   const handleMessage = (msg) => {

@@ -93,6 +93,43 @@ export default function TicketDetail() {
             <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
           </div>
 
+          {/* Attachments — only if ticket has images */}
+          {ticket.images && ticket.images.length > 0 && (
+            <div className="card">
+              <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                📎 Attachments ({ticket.images.length})
+              </h3>
+              <div className="flex flex-wrap gap-3">
+                {ticket.images.map((img, i) => {
+                  const src = (process.env.REACT_APP_API_URL || "http://localhost:8000") + img.url;
+                  return (
+                    <a
+                      key={i}
+                      href={src}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-xl overflow-hidden border border-surface-border hover:border-brand-500/50 transition-colors"
+                      style={{ width: "120px" }}
+                    >
+                      <img
+                        src={src}
+                        alt={img.original_name}
+                        style={{ width: "100%", height: "90px", objectFit: "cover" }}
+                        loading="lazy"
+                      />
+                      <div className="p-1.5">
+                        <p className="text-xs text-gray-300 truncate">{img.original_name}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(img.uploaded_at).toLocaleString()}
+                        </p>
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* AI Response / Edit area */}
           {ai.generated_response && (
             <div className="card">

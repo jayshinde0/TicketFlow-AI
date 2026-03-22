@@ -3,8 +3,9 @@
  */
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ticketsAPI } from "../services/api";
+import { ticketsAPI, imagesAPI } from "../services/api";
 import { RoutingBadge, PriorityBadge, ConfidenceBar } from "../components/ui/Loader";
+import ImageUpload from "../components/ImageUpload";
 import toast from "react-hot-toast";
 import { Send, CheckCircle2, Brain, Zap, Clock, AlertTriangle } from "lucide-react";
 
@@ -19,6 +20,8 @@ export default function SubmitTicket() {
   const [form, setForm] = useState({ subject: "", description: "", user_tier: "Standard" });
   const [loading,  setLoading]  = useState(false);
   const [result,   setResult]   = useState(null);
+  const [imageFiles, setImageFiles] = useState([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
@@ -33,6 +36,20 @@ export default function SubmitTicket() {
       const res = await ticketsAPI.submit(form);
       setResult(res.data);
       toast.success("Ticket submitted successfully!");
+
+      // Upload images after ticket creation (non-blocking)
+      if (imageFiles.length > 0 && res.data?.ticket_id) {
+        setUploadingImages(true);
+        try {
+          await imagesAPI.upload(res.data.ticket_id, imageFiles);
+          toast.success(`${imageFiles.length} image(s) uploaded!`);
+        } catch (imgErr) {
+          toast("Ticket submitted but image upload failed. You can retry from the ticket detail page.", { icon: "⚠️" });
+        } finally {
+          setUploadingImages(false);
+          setImageFiles([]);
+        }
+      }
     } catch (err) {
       toast.error(err.response?.data?.detail || "Submission failed. Is the backend running?");
     } finally {
@@ -128,7 +145,7 @@ export default function SubmitTicket() {
           <button onClick={() => navigate(`/tickets/${result.ticket_id}`)} className="btn-primary flex-1 justify-center">
             View Ticket Details
           </button>
-          <button onClick={() => { setResult(null); setForm({ subject: "", description: "", user_tier: "Standard" }); }}
+          <button onClick={() => { setResult(null); setForm({ subject: "", description: "", user_tier: "Standard" }); setImageFiles([]); }}
             className="btn-secondary">
             Submit Another
           </button>
@@ -173,6 +190,9 @@ export default function SubmitTicket() {
             />
             <p className="text-xs text-gray-500 mt-1">{form.description.length} chars · min 20</p>
           </div>
+
+          {/* Image Upload */}
+          <ImageUpload files={imageFiles} setFiles={setImageFiles} />
 
           {/* Quick examples */}
           <div>

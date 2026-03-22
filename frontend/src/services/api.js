@@ -86,4 +86,40 @@ export const adminAPI = {
   systemHealth:     () => api.get("/api/admin/system-health"),
 };
 
+// ── Security ──────────────────────────────────────────────────────────
+export const securityAPI = {
+  threats:     (params) => api.get("/api/security/threats", { params }),
+  stats:       () => api.get("/api/security/stats"),
+  playbook:    (type) => api.get(`/api/security/playbook/${type}`),
+  acknowledge: (id) => api.post(`/api/security/${id}/acknowledge`),
+  incidentReport: (id, data) => api.post(`/api/security/${id}/incident-report`, data),
+};
+
+// ── Queue Monitor ─────────────────────────────────────────────────────
+export const queueAPI = {
+  status:         () => api.get("/api/queue/status"),
+  performance:    (hours = 24) => api.get("/api/queue/performance", { params: { hours } }),
+  stageBreakdown: (hours = 24) => api.get("/api/queue/stage-breakdown", { params: { hours } }),
+};
+
+// ── Simulation ────────────────────────────────────────────────────────
+export const simulationAPI = {
+  start:  (config) => api.post("/api/simulation/start", config),
+  stop:   () => api.post("/api/simulation/stop"),
+  status: () => api.get("/api/simulation/status"),
+};
+
+// ── Ticket Images ─────────────────────────────────────────────────────
+export const imagesAPI = {
+  upload: (ticketId, files) => {
+    const formData = new FormData();
+    files.forEach((f) => formData.append("images", f));
+    return api.post(`/api/tickets/${ticketId}/images`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 60000,
+    });
+  },
+  getUrl: (ticketId, filename) => `/api/tickets/${ticketId}/images/${filename}`,
+};
+
 export default api;
