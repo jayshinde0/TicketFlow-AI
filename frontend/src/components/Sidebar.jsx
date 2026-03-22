@@ -9,7 +9,7 @@ import { useNotifications } from "../contexts/NotificationContext";
 import {
   LayoutDashboard, Ticket, ListTodo, BarChart2,
   BookOpen, Settings, LogOut, Zap, Wifi, WifiOff,
-  PlusCircle, Users,
+  PlusCircle, Users, ShieldAlert, Activity, PlaySquare,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -84,7 +84,10 @@ export default function Sidebar({ onClose }) {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2 mt-4">
               Admin
             </p>
-            <NavItem to="/admin" icon={Settings} label="Admin Panel" />
+            <NavItem to="/admin"            icon={Settings}     label="Admin Panel" />
+            <NavItem to="/admin/queue"      icon={Activity}     label="Admin Queue" />
+            <NavItem to="/admin/security"   icon={ShieldAlert}  label="Security Feed" />
+            <NavItem to="/admin/simulation" icon={PlaySquare}   label="Simulation Mode" />
           </>
         )}
       </nav>

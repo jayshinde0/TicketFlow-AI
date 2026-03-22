@@ -16,6 +16,9 @@ const ROUTE_LABELS = {
   "/analytics":  "Analytics",
   "/knowledge":  "Knowledge Base",
   "/admin":      "Admin Panel",
+  "/admin/queue":      "Admin Queue",
+  "/admin/security":   "Security Feed",
+  "/admin/simulation": "Simulation Mode",
 };
 
 export default function TopBar({ onMenuClick }) {

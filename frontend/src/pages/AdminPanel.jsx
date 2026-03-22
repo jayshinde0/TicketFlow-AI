@@ -8,7 +8,9 @@ import toast from "react-hot-toast";
 import {
   RefreshCw, Server, Database, Zap, CheckCircle2,
   XCircle, BookOpen, Settings, AlertTriangle, Brain,
+  ShieldAlert, Activity, PlaySquare, ChevronRight,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 function HealthDot({ status }) {
   const ok = status === "ok";
@@ -65,6 +67,54 @@ export default function AdminPanel() {
           <p className="page-subtitle">System management and model control</p>
         </div>
         <button onClick={load} className="btn-secondary btn-sm"><RefreshCw size={14} /> Refresh</button>
+      </div>
+
+      {/* Quick Access to new features */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link to="/admin/queue" className="card hover:border-brand-500/50 transition-colors group">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500/20">
+                <Activity size={18} />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-white">Admin Queue</h4>
+                <p className="text-xs text-gray-500">Global ticket monitoring</p>
+              </div>
+            </div>
+            <ChevronRight size={14} className="text-gray-600 group-hover:text-gray-400" />
+          </div>
+        </Link>
+
+        <Link to="/admin/security" className="card hover:border-red-500/50 transition-colors group">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-red-500/10 text-red-400 group-hover:bg-red-500/20">
+                <ShieldAlert size={18} />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-white">Security Feed</h4>
+                <p className="text-xs text-gray-500">Threat & escalation monitor</p>
+              </div>
+            </div>
+            <ChevronRight size={14} className="text-gray-600 group-hover:text-gray-400" />
+          </div>
+        </Link>
+
+        <Link to="/admin/simulation" className="card hover:border-brand-500/50 transition-colors group">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-brand-500/10 text-brand-400 group-hover:bg-brand-500/20">
+                <PlaySquare size={18} />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-white">Simulation Mode</h4>
+                <p className="text-xs text-gray-500">Load testing & ticket generation</p>
+              </div>
+            </div>
+            <ChevronRight size={14} className="text-gray-600 group-hover:text-gray-400" />
+          </div>
+        </Link>
       </div>
 
       {/* System health */}
