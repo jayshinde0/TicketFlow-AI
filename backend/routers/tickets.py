@@ -35,6 +35,7 @@ from services.safety_guardrails_service import safety_guardrails_service
 from services.ollama_provider import ollama_provider
 from services.security_threat_service import security_threat_service
 from services.escalation_service import escalation_service
+from services.ai_pipeline import security_pipeline
 from utils.helpers import generate_ticket_id, utcnow, paginate, tier_to_int
 from utils.text_cleaner import count_urgency_keywords
 from core.config import settings
@@ -71,6 +72,12 @@ async def run_ai_pipeline(
     start_time = time.time()
     stage_timings = {}  # per-stage timing breakdown
     zero_shot_used = False
+    # Security pipeline result defaults (populated later in pipeline)
+    threat_level = "normal"
+    threat_type_new = "none"
+    threat_confidence = 0.0
+    triggered_rules = []
+    detection_reason = ""
     if now is None:
         now = utcnow()
 
@@ -250,20 +257,64 @@ async def run_ai_pipeline(
             logger.info(f"Response sanitized for {ticket_id}: minor violations redacted")
     stage_timings["safety_check_ms"] = int((time.time() - t0) * 1000)
 
-    # ─── Security threat analysis ───────────────────────────────
+    # ─── Security threat analysis (enhanced pipeline) ──────────────
     t0 = time.time()
+    # Run legacy threat service (Ollama-based) in parallel with new rule engine pipeline
     threat_result = await security_threat_service.analyze_threat(
         text=combined_text,
         category=category,
     )
+
+    # Run new AI security pipeline (rule engine + ML + ChromaDB)
+    sec_pipeline_result = await security_pipeline.run(
+        ticket_id=ticket_id,
+        subject=subject,
+        description=description,
+        ml_category=category,
+        ml_confidence=model_confidence,
+    )
+
+    # Merge: new pipeline takes precedence for threat_level/type
+    threat_level = sec_pipeline_result["threat_level"]
+    threat_type_new = sec_pipeline_result["threat_type"]
+    threat_confidence = sec_pipeline_result["confidence_score"]
+    triggered_rules = sec_pipeline_result["triggered_rules"]
+    detection_reason = sec_pipeline_result["detection_reason"]
+
+    # Override routing for attacks/suspicious
+    if sec_pipeline_result["disable_auto_resolve"]:
+        if routing_decision == "AUTO_RESOLVE":
+            routing_decision = "ESCALATE_TO_HUMAN"
+        # Override generated response with safe response
+        if sec_pipeline_result.get("safe_response"):
+            llm_result["generated_response"] = sec_pipeline_result["safe_response"]
+
+    # Override priority for attacks
+    if threat_level == "attack":
+        final_priority = "Critical"
+
+    # Legacy escalation for critical/high threats
     if threat_result.get("threat_detected") and threat_result.get("severity") in ("critical", "high"):
-        # Force escalation and start escalation timer
         if routing_decision == "AUTO_RESOLVE":
             routing_decision = "ESCALATE_TO_HUMAN"
         await escalation_service.create_escalation(
             ticket_id=ticket_id,
             threat_analysis=threat_result,
         )
+    elif threat_level == "attack" and not threat_result.get("threat_detected"):
+        # New pipeline detected attack but legacy didn't — still escalate
+        await escalation_service.create_escalation(
+            ticket_id=ticket_id,
+            threat_analysis={
+                "threat_detected": True,
+                "threat_type": threat_type_new,
+                "severity": "high",
+                "confidence": threat_confidence,
+                "recommended_action": detection_reason,
+                "indicators": triggered_rules,
+            },
+        )
+
     stage_timings["threat_analysis_ms"] = int((time.time() - t0) * 1000)
 
     # ─── LIME explainability (async, won't block pipeline) ────────────
@@ -343,6 +394,12 @@ async def run_ai_pipeline(
         },
         "stage_timings": stage_timings,
         "zero_shot_used": zero_shot_used,
+        # ── Security pipeline fields ────────────────────────────────
+        "threat_level": threat_level,
+        "threat_type": threat_type_new,
+        "threat_confidence": threat_confidence,
+        "triggered_rules": triggered_rules,
+        "detection_reason": detection_reason,
     }
 
     # ─── Audit logging ────────────────────────────────────────────────

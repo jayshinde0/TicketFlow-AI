@@ -142,4 +142,13 @@ async def create_indexes() -> None:
     await db["model_versions"].create_index("is_active")
     await db["model_versions"].create_index("trained_at")
 
+    # Security: threat level and escalation queries
+    await db["tickets"].create_index("ai_analysis.threat_level")
+    await db["tickets"].create_index("ai_analysis.threat_type")
+    await db["tickets"].create_index("is_escalated")
+    await db["escalation_logs"].create_index("ticket_id")
+    await db["escalation_logs"].create_index([("acknowledged", 1), ("resolved", 1)])
+    await db["escalation_logs"].create_index("severity")
+    await db["escalation_logs"].create_index("created_at")
+
     logger.info("MongoDB indexes created successfully.")

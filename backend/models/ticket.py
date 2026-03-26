@@ -182,6 +182,13 @@ class AIAnalysis(BaseModel):
     stage_timings: Optional[StageTimings] = None
     zero_shot_used: bool = False            # True if Ollama fallback classification was used
 
+    # ── Security pipeline fields (Phase 2) ────────────────────────────
+    threat_level: Optional[str] = None          # normal | suspicious | attack
+    threat_type: Optional[str] = None           # sql_injection | xss | brute_force | unauthorized_access | ddos | none
+    threat_confidence: Optional[float] = None   # 0.0 – 1.0
+    triggered_rules: List[str] = []             # list of rule names that fired
+    detection_reason: Optional[str] = None      # human-readable explanation
+
     # ── Image attachments ─────────────────────────────────────────────
     images: List[Dict[str, Any]] = Field(default_factory=list)  # [{filename, original_name, url, uploaded_at}]
 
@@ -251,6 +258,18 @@ class TicketStatusUpdate(BaseModel):
 
 # ─── Database document schema ─────────────────────────────────────────
 
+class SecurityLog(BaseModel):
+    """A single entry in the ticket's security action log."""
+    action: str                         # security_analysis | manual_escalation | acknowledged | resolved
+    actor: str                          # user_id of who performed the action
+    timestamp: str                      # ISO datetime string
+    threat_level: Optional[str] = None
+    threat_type: Optional[str] = None
+    confidence: Optional[float] = None
+    triggered_rules: List[str] = []
+    reason: Optional[str] = None
+
+
 class TicketDocument(BaseModel):
     """
     Full ticket document as stored in MongoDB.
@@ -271,6 +290,10 @@ class TicketDocument(BaseModel):
     ai_analysis: Optional[AIAnalysis] = None
     resolution: Optional[ResolutionData] = None
     metadata: Optional[TicketMetadata] = None
+
+    # ── Security fields ───────────────────────────────────────────────
+    is_escalated: bool = False
+    security_logs: List[SecurityLog] = []
 
     class Config:
         use_enum_values = True

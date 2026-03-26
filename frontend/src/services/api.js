@@ -88,11 +88,15 @@ export const adminAPI = {
 
 // ── Security ──────────────────────────────────────────────────────────
 export const securityAPI = {
-  threats:     (params) => api.get("/api/security/threats", { params }),
-  stats:       () => api.get("/api/security/stats"),
-  playbook:    (type) => api.get(`/api/security/playbook/${type}`),
-  acknowledge: (id) => api.post(`/api/security/${id}/acknowledge`),
+  threats:        (params) => api.get("/api/security/threats", { params }),
+  stats:          () => api.get("/api/security/stats"),
+  playbook:       (type) => api.get(`/api/security/playbook/${type}`),
+  acknowledge:    (id) => api.post(`/api/security/${id}/acknowledge`),
+  resolve:        (id) => api.post(`/api/security/${id}/resolve`),
+  getLogs:        (id) => api.get(`/api/security/${id}/logs`),
   incidentReport: (id, data) => api.post(`/api/security/${id}/incident-report`, data),
+  analyzeTicket:  (data) => api.post("/api/security/analyze-ticket", data),
+  escalateTicket: (data) => api.post("/api/security/escalate-ticket", data),
 };
 
 // ── Queue Monitor ─────────────────────────────────────────────────────

@@ -213,6 +213,24 @@ class ConnectionManager:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         })
 
+    async def broadcast_security_alert(self, alert_data: dict) -> None:
+        """
+        Broadcast a real-time security threat alert to all admin/agent clients.
+        Used by the security pipeline when an attack or suspicious ticket is detected.
+        """
+        message = {
+            "type": "security_alert",
+            "data": alert_data,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        # Broadcast to both admin and agent rooms
+        await self.broadcast_to_room("admin", message)
+        await self.broadcast_to_room("agent", message)
+        logger.warning(
+            f"Security alert broadcast: ticket={alert_data.get('ticket_id')}, "
+            f"level={alert_data.get('threat_level')}, type={alert_data.get('threat_type')}"
+        )
+
     @property
     def connection_count(self) -> int:
         """Total number of active WebSocket connections."""
