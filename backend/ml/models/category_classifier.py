@@ -38,8 +38,10 @@ class CategoryClassifier:
     """
 
     def __init__(self):
+        # Increased C from 5.0 to 10.0 for higher confidence predictions
+        # Higher C = less regularization = more confident predictions
         self.classifier = LogisticRegression(
-            C=5.0,
+            C=10.0,
             max_iter=2000,
             class_weight="balanced",
             solver="lbfgs",
@@ -68,15 +70,15 @@ class CategoryClassifier:
         n_samples = X_train.shape[0]
         logger.info(
             f"Training CategoryClassifier on {n_samples} samples "
-            f"(C=5.0, balanced, lbfgs)..."
+            f"(C=10.0, balanced, lbfgs)..."
         )
 
         if use_grid_search:
             logger.info(
                 "Running 5-fold GridSearch over "
-                "C: [0.1, 1.0, 5.0, 10.0, 50.0]..."
+                "C: [1.0, 5.0, 10.0, 20.0, 50.0]..."
             )
-            param_grid = {"C": [0.1, 1.0, 5.0, 10.0, 50.0]}
+            param_grid = {"C": [1.0, 5.0, 10.0, 20.0, 50.0]}
             base_clf = LogisticRegression(
                 max_iter=2000,
                 class_weight="balanced",

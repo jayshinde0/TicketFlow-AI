@@ -23,6 +23,13 @@ export function NotificationProvider({ children }) {
 
     const room  = user.role === "admin" ? "admin" : "agent";
     const token = localStorage.getItem("token");
+    
+    // Don't connect if no token
+    if (!token) {
+      console.log("No auth token, skipping WebSocket connection");
+      return;
+    }
+    
     const WS_URL = process.env.REACT_APP_WS_URL || "ws://localhost:8000";
 
     // Use native WebSocket (FastAPI WebSocket endpoint)
@@ -52,11 +59,19 @@ export function NotificationProvider({ children }) {
       setConnected(false);
       clearInterval(wsRef.current?._pingInterval);
       wsRef.current = null;
-      // Reconnect after 5s
-      setTimeout(connect, 5000);
+      
+      // Only reconnect if we have a token
+      const token = localStorage.getItem("token");
+      if (token && user) {
+        // Reconnect after 5s
+        setTimeout(connect, 5000);
+      }
     };
 
-    ws.onerror = () => ws.close();
+    ws.onerror = (error) => {
+      console.log("WebSocket error (will retry):", error.message || "Connection failed");
+      ws.close();
+    };
   }, [user]);
 
   const handleMessage = (msg) => {

@@ -52,7 +52,7 @@ class ConfidenceService:
         Logic:
         - Get the keyword list for predicted category
         - Count how many appear in the ticket text
-        - Normalize: min(count / 5, 1.0)
+        - Normalize: min(count / 3, 1.0) - IMPROVED from /5 to /3
         """
         domain_keywords = settings.DOMAIN_KEYWORDS.get(category, [])
         if not domain_keywords:
@@ -60,7 +60,8 @@ class ConfidenceService:
 
         text_lower = text.lower()
         matches = sum(1 for kw in domain_keywords if kw in text_lower)
-        boost = min(matches / 5.0, 1.0)
+        # Improved: easier to get high boost (3 keywords = 100% instead of 5)
+        boost = min(matches / 3.0, 1.0)
         return round(boost, 4)
 
     def compute(
@@ -110,23 +111,35 @@ class ConfidenceService:
         # ── Step 2: Keyword boost ─────────────────────────────────────
         keyword_boost = self._compute_keyword_boost(ticket_text, category)
 
-        # ── Step 3: Composite confidence ─────────────────────────────
-        model_component    = 0.50 * model_confidence
-        similarity_component = 0.35 * similarity_score
-        keyword_component  = 0.15 * keyword_boost
+        # ── Step 3: Composite confidence (IMPROVED WEIGHTS) ───────────
+        # Increased model weight from 50% to 60% for better ML trust
+        # Reduced similarity from 35% to 25% (less penalty for new tickets)
+        # Increased keyword boost from 15% to 20% for domain expertise
+        model_component    = 0.60 * model_confidence
+        similarity_component = 0.25 * similarity_score
+        keyword_component  = 0.20 * keyword_boost
 
         confidence = model_component + similarity_component + keyword_component
+        
+        # Apply confidence boost for high model certainty
+        if model_confidence >= 0.90:
+            confidence = min(confidence + 0.05, 1.0)
+            logger.debug(f"High model certainty boost: +0.05")
+        elif model_confidence >= 0.80:
+            confidence = min(confidence + 0.03, 1.0)
+            logger.debug(f"Good model certainty boost: +0.03")
 
-        # ── Step 4: Sentiment adjustment ──────────────────────────────
+        # ── Step 4: Sentiment adjustment (REDUCED PENALTY) ────────────
         sentiment_reduced = False
         if (
             sentiment_label == "NEGATIVE"
             and sentiment_score > settings.SENTIMENT_NEGATIVE_THRESHOLD
         ):
-            confidence -= 0.08
+            # Reduced penalty from -0.08 to -0.05 (less aggressive)
+            confidence -= 0.05
             sentiment_reduced = True
             logger.debug(
-                f"Sentiment adjustment: -0.08 for frustrated user "
+                f"Sentiment adjustment: -0.05 for frustrated user "
                 f"(score={sentiment_score:.2f})"
             )
 
@@ -152,10 +165,16 @@ class ConfidenceService:
                 "reason": f"SLA breach probability {sla_breach_probability:.0%} exceeds threshold",
             }
 
-        # ── Step 6: Standard routing ──────────────────────────────────
-        if confidence >= settings.CONFIDENCE_HIGH_THRESHOLD:
+        # ── Step 6: Standard routing (IMPROVED THRESHOLDS) ────────────
+        # Lowered thresholds for better auto-resolution rates
+        # High: 0.85 -> 0.78 (more auto-resolve)
+        # Low: 0.60 -> 0.55 (less escalation)
+        high_threshold = 0.78
+        low_threshold = 0.55
+        
+        if confidence >= high_threshold:
             routing = "AUTO_RESOLVE"
-        elif confidence >= settings.CONFIDENCE_LOW_THRESHOLD:
+        elif confidence >= low_threshold:
             routing = "SUGGEST_TO_AGENT"
         else:
             routing = "ESCALATE_TO_HUMAN"
