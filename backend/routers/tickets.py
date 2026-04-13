@@ -32,7 +32,7 @@ from services.audit_service import audit_service
 from services.notification_service import notification_service
 from services.time_sensitivity_service import time_sensitivity_service
 from services.safety_guardrails_service import safety_guardrails_service
-from services.ollama_provider import ollama_provider
+from services.llm_provider_factory import llm_provider as ollama_provider
 from services.security_threat_service import security_threat_service
 from services.escalation_service import escalation_service
 from services.ai_pipeline import security_pipeline

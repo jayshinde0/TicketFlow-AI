@@ -8,7 +8,7 @@ import asyncio
 from typing import Dict, Any, Optional, List
 from loguru import logger
 
-from services.ollama_provider import ollama_provider
+from services.llm_provider_factory import llm_provider as ollama_provider
 
 
 class SecurityThreatService:

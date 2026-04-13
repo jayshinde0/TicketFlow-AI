@@ -1,21 +1,24 @@
 """
-services/llm_service.py — Agent 4: Ollama Mistral response generation.
+services/llm_service.py — Agent 4: LLM response generation.
 
 Implements RAG (Retrieval-Augmented Generation) using retrieved solutions
 as context. Includes hallucination detection via cosine similarity check.
+
+Provider is selected at startup via LLM_PROVIDER env var:
+    "ollama" → Ollama/Mistral  (local dev)
+    "qwen"   → Qwen cloud API  (production)
 """
 
-import asyncio
 import time
-import httpx
-from typing import Optional, Dict
+from typing import Optional
 from loguru import logger
 
 from core.config import settings
 from services.embedding_service import embedding_service
+from services.llm_provider_factory import llm_provider
 
 
-# ─── Prompt template ──────────────────────────────────────────────────
+# ─── Prompt templates ─────────────────────────────────────────────────
 RAG_PROMPT_TEMPLATE = """\
 You are a professional IT support specialist.
 
@@ -64,73 +67,29 @@ class LLMService:
     """
     Agent 4 of the TicketFlow pipeline.
 
+    Delegates all LLM calls to the active provider (Ollama or Qwen),
+    selected via the LLM_PROVIDER environment variable.
+
     Responsibilities:
-    - Call Ollama (Mistral-Nemo) for response generation
     - Build RAG prompt from retrieved solution context
+    - Call the active LLM provider for response generation
     - Detect hallucination via cosine similarity check
     - Fall back to retrieved solution if hallucination detected
     - Generate knowledge base articles from resolved tickets
     - Generate root cause hypotheses for spike incidents
     """
 
-    def __init__(self):
-        self._client = None
-        self.ollama_url = settings.OLLAMA_URL
-        self.model = settings.OLLAMA_MODEL
+    @property
+    def _provider(self):
+        """Active LLM provider (resolved from factory at import time)."""
+        return llm_provider
 
-    def _get_client(self) -> httpx.AsyncClient:
-        """Get or create async HTTP client for Ollama API."""
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                timeout=httpx.Timeout(30.0, connect=5.0)
-            )
-        return self._client
-
-    async def _call_ollama(
-        self,
-        prompt: str,
-        temperature: float = 0.3,
-        max_tokens: int = 250,
-    ) -> Optional[str]:
-        """
-        Call Ollama API to generate text.
-
-        Args:
-            prompt: Input prompt string.
-            temperature: Sampling temperature (lower = more deterministic).
-            max_tokens: Maximum tokens to generate.
-
-        Returns:
-            Generated text string, or None on error.
-        """
-        try:
-            client = self._get_client()
-            response = await client.post(
-                f"{self.ollama_url}/api/generate",
-                json={
-                    "model": self.model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": temperature,
-                        "num_predict": max_tokens,
-                        "stop": ["\n\n\n"],
-                    },
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data.get("response", "").strip()
-
-        except httpx.ConnectError:
-            logger.warning(
-                f"Ollama not reachable at {self.ollama_url}. "
-                f"Is Ollama running? (ollama serve)"
-            )
-            return None
-        except Exception as e:
-            logger.error(f"Ollama API error: {e}")
-            return None
+    @property
+    def model(self) -> str:
+        """Human-readable model name for logging/storage."""
+        if settings.LLM_PROVIDER.lower() == "qwen":
+            return settings.QWEN_MODEL
+        return settings.OLLAMA_MODEL
 
     async def generate_response(
         self,
@@ -143,17 +102,7 @@ class LLMService:
         Agent 4 main method: Generate a support response via RAG.
 
         Only called when routing != ESCALATE_TO_HUMAN.
-
-        Args:
-            ticket_text: Original ticket text.
-            category: Predicted category.
-            retrieved_solution: Best solution from ChromaDB.
-            routing_decision: Current routing decision.
-
-        Returns:
-            Agent 4 output dict per spec.
         """
-        # Step 1: Only call LLM for AUTO_RESOLVE or SUGGEST paths
         if routing_decision == "ESCALATE_TO_HUMAN":
             return {
                 "generated_response": None,
@@ -165,30 +114,26 @@ class LLMService:
 
         start_time = time.time()
 
-        # Step 2: Build RAG prompt
         prompt = RAG_PROMPT_TEMPLATE.format(
-            ticket_text=ticket_text[:800],   # truncate long tickets
+            ticket_text=ticket_text[:800],
             category=category,
             retrieved_solution=retrieved_solution[:600],
         )
 
-        # Step 3: Call Ollama
-        generated_text = await self._call_ollama(prompt)
+        generated_text = await self._provider.generate(
+            prompt, temperature=0.3, max_tokens=250
+        )
         generation_time_ms = int((time.time() - start_time) * 1000)
 
         hallucination_detected = False
         fallback_used = False
 
-        if generated_text is None:
-            # Ollama unavailable — use retrieved solution directly
+        if not generated_text:
+            # Provider unavailable — fall back to retrieved solution
             generated_text = retrieved_solution
             fallback_used = True
         else:
-            # Step 4: Hallucination detection
-            similarity = await self._check_hallucination(
-                generated_text,
-                retrieved_solution,
-            )
+            similarity = await self._check_hallucination(generated_text, retrieved_solution)
             if similarity < settings.HALLUCINATION_SIM_THRESHOLD:
                 hallucination_detected = True
                 fallback_used = True
@@ -207,26 +152,15 @@ class LLMService:
             "model_used": self.model if not fallback_used else "fallback",
         }
 
-    async def _check_hallucination(
-        self,
-        generated_text: str,
-        reference_text: str,
-    ) -> float:
-        """
-        Compare response embedding with reference solution embedding.
-        If cosine similarity < HALLUCINATION_SIM_THRESHOLD, flag as hallucinated.
-
-        Returns:
-            Cosine similarity (0.0-1.0).
-        """
+    async def _check_hallucination(self, generated_text: str, reference_text: str) -> float:
+        """Cosine similarity guard against hallucinated responses."""
         try:
-            similarity = await embedding_service.cosine_similarity_async(
+            return await embedding_service.cosine_similarity_async(
                 generated_text, reference_text
             )
-            return similarity
         except Exception as e:
             logger.warning(f"Hallucination check error: {e}. Assuming ok.")
-            return 1.0  # assume ok on error
+            return 1.0
 
     async def generate_knowledge_article(
         self,
@@ -235,39 +169,14 @@ class LLMService:
         solution: str,
         resolution_hours: float,
     ) -> Optional[dict]:
-        """
-        Generate a structured KB article from a resolved ticket.
-
-        Returns:
-            Parsed JSON dict or None on failure.
-        """
-        import json
-
+        """Generate a structured KB article from a resolved ticket."""
         prompt = KNOWLEDGE_ARTICLE_PROMPT.format(
             ticket_text=ticket_text[:500],
             category=category,
             solution=solution[:500],
             resolution_hours=round(resolution_hours, 1),
         )
-
-        response = await self._call_ollama(prompt, temperature=0.2, max_tokens=400)
-
-        if response is None:
-            return None
-
-        # Extract JSON from response (handle markdown code blocks)
-        json_text = response
-        if "```" in json_text:
-            start = json_text.find("{")
-            end = json_text.rfind("}") + 1
-            json_text = json_text[start:end]
-
-        try:
-            article_data = json.loads(json_text)
-            return article_data
-        except json.JSONDecodeError as e:
-            logger.warning(f"Knowledge article JSON parse error: {e}")
-            return None
+        return await self._provider.generate_json(prompt, temperature=0.2, max_tokens=400)
 
     async def generate_root_cause_hypothesis(
         self,
@@ -276,12 +185,7 @@ class LLMService:
         ticket_count: int,
         window_minutes: int,
     ) -> str:
-        """
-        Generate a one-sentence root cause hypothesis for an incident spike.
-
-        Returns:
-            Hypothesis string, or generic fallback.
-        """
+        """Generate a one-sentence root cause hypothesis for an incident spike."""
         prompt = ROOT_CAUSE_PROMPT.format(
             keywords=", ".join(keywords[:5]),
             category=category,
@@ -289,16 +193,11 @@ class LLMService:
             window=window_minutes,
         )
 
-        response = await self._call_ollama(
-            prompt, temperature=0.1, max_tokens=100
-        )
+        response = await self._provider.generate(prompt, temperature=0.1, max_tokens=100)
 
         if response:
-            # Take only the first sentence
-            first_sentence = response.split(".")[0].strip()
-            return first_sentence + "."
+            return response.split(".")[0].strip() + "."
 
-        # Fallback hypothesis
         return (
             f"Possible {category.lower()} system issue affecting multiple users, "
             f"related to: {', '.join(keywords[:3])}."

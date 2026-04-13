@@ -43,13 +43,25 @@ class Settings(BaseSettings):
     REDIS_HOST: str = Field(default="localhost", env="REDIS_HOST")
     REDIS_PORT: int = Field(default=6379, env="REDIS_PORT")
 
-    # ─── Ollama / LLM ─────────────────────────────────────────────────
+    # ─── LLM Provider ─────────────────────────────────────────────────
+    # "ollama" for local dev, "qwen" for production
+    LLM_PROVIDER: str = Field(default="ollama", env="LLM_PROVIDER")
+
+    # ─── Ollama (local dev) ───────────────────────────────────────────
     OLLAMA_URL: str = Field(
         default="http://localhost:11434", env="OLLAMA_URL"
     )
     OLLAMA_MODEL: str = Field(default="mistral-nemo", env="OLLAMA_MODEL")
     OLLAMA_TEMPERATURE: float = 0.3
     OLLAMA_MAX_TOKENS: int = 250
+
+    # ─── Qwen (production) ────────────────────────────────────────────
+    QWEN_API_KEY: str = Field(default="", env="QWEN_API_KEY")
+    QWEN_MODEL: str = Field(default="qwen-plus", env="QWEN_MODEL")
+    QWEN_API_BASE: str = Field(
+        default="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        env="QWEN_API_BASE",
+    )
 
     # ─── ChromaDB ─────────────────────────────────────────────────────
     CHROMA_HOST: str = Field(default="localhost", env="CHROMA_HOST")
