@@ -43,6 +43,7 @@ from services.notification_service import notification_service
 from services.time_sensitivity_service import time_sensitivity_service
 from services.safety_guardrails_service import safety_guardrails_service
 from services.llm_provider_factory import llm_provider as ollama_provider
+from services.nlp_cache import nlp_cache
 from services.security_threat_service import security_threat_service
 from services.escalation_service import escalation_service
 from services.ai_pipeline import security_pipeline
@@ -96,7 +97,12 @@ async def run_ai_pipeline(
 
     # ─── Agent 0: NLP preprocessing ──────────────────────────────────
     t0 = time.time()
-    nlp_result = await nlp_service.preprocess_async(combined_text)
+    nlp_result = await nlp_cache.get(combined_text)
+    if nlp_result is None:
+        nlp_result = await nlp_service.preprocess_async(combined_text)
+        await nlp_cache.set(combined_text, nlp_result)
+    else:
+        logger.debug(f"NLP cache hit for {ticket_id} — skipped spaCy processing")
     cleaned_text = nlp_result["cleaned_text"]
     features = nlp_result["features"]
     word_count = features["word_count"]

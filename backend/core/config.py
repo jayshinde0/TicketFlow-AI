@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     REDIS_HOST: str = Field(default="localhost", env="REDIS_HOST")
     REDIS_PORT: int = Field(default=6379, env="REDIS_PORT")
 
+    # ─── Upstash Redis (NLP preprocessing cache) ──────────────────────
+    UPSTASH_REDIS_REST_URL: str = Field(default="", env="UPSTASH_REDIS_REST_URL")
+    UPSTASH_REDIS_REST_TOKEN: str = Field(default="", env="UPSTASH_REDIS_REST_TOKEN")
+
     # ─── LLM Provider ─────────────────────────────────────────────────
     # "ollama" for local dev, "qwen" for production
     LLM_PROVIDER: str = Field(default="ollama", env="LLM_PROVIDER")
