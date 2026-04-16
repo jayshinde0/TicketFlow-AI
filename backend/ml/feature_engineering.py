@@ -14,14 +14,13 @@ from loguru import logger
 from utils.text_cleaner import extract_text_features
 from utils.helpers import tier_to_int, priority_to_int
 
-
 # ─── TF-IDF configuration ─────────────────────────────────────────────
 TFIDF_PARAMS = {
     "max_features": 10_000,
     "ngram_range": (1, 2),
-    "sublinear_tf": True,       # log-scale TF, helps with frequent terms
-    "min_df": 2,                # ignore terms appearing in < 2 docs
-    "max_df": 0.95,             # ignore terms appearing in > 95% docs
+    "sublinear_tf": True,  # log-scale TF, helps with frequent terms
+    "min_df": 2,  # ignore terms appearing in < 2 docs
+    "max_df": 0.95,  # ignore terms appearing in > 95% docs
     "strip_accents": "unicode",
     "analyzer": "word",
     "token_pattern": r"(?u)\b\w\w+\b",  # at least 2-char words
@@ -33,7 +32,7 @@ class FeatureEngineer:
     Builds the feature matrix:
       - TF-IDF on cleaned text (sparse, 10k dims)
       - Scalar features: word_count, urgency_keywords, etc. (dense)
-    
+
     Fit on training data; transform on validation/test/inference.
     """
 
@@ -86,8 +85,8 @@ class FeatureEngineer:
                     tier_to_int(tier),
                     hour,
                     day,
-                    int(day >= 5),                    # is_weekend
-                    int(hour < 8 or hour >= 18),      # outside business hours
+                    int(day >= 5),  # is_weekend
+                    int(hour < 8 or hour >= 18),  # outside business hours
                 ]
             else:
                 row += [1, 12, 0, 0, 0]  # defaults
@@ -97,9 +96,7 @@ class FeatureEngineer:
         return np.array(rows, dtype=np.float32)
 
     def fit(
-        self,
-        texts: List[str],
-        metadata: Optional[pd.DataFrame] = None
+        self, texts: List[str], metadata: Optional[pd.DataFrame] = None
     ) -> "FeatureEngineer":
         """Fit TF-IDF and scalar scaler on training data."""
         logger.info("Fitting TF-IDF vectorizer...")
@@ -111,15 +108,12 @@ class FeatureEngineer:
 
         self._fitted = True
         logger.info(
-            f"FeatureEngineer fitted. "
-            f"Vocab size: {len(self.tfidf.vocabulary_)}"
+            f"FeatureEngineer fitted. " f"Vocab size: {len(self.tfidf.vocabulary_)}"
         )
         return self
 
     def transform(
-        self,
-        texts: List[str],
-        metadata: Optional[pd.DataFrame] = None
+        self, texts: List[str], metadata: Optional[pd.DataFrame] = None
     ) -> csr_matrix:
         """
         Transform texts into the joint feature matrix.
@@ -138,9 +132,7 @@ class FeatureEngineer:
         return hstack([tfidf_features, csr_matrix(scalar_scaled)])
 
     def fit_transform(
-        self,
-        texts: List[str],
-        metadata: Optional[pd.DataFrame] = None
+        self, texts: List[str], metadata: Optional[pd.DataFrame] = None
     ) -> csr_matrix:
         """Fit and transform in one step (for training)."""
         return self.fit(texts, metadata).transform(texts, metadata)
@@ -149,19 +141,24 @@ class FeatureEngineer:
         """Return all feature names (TF-IDF vocab + scalar names)."""
         tfidf_names = self.tfidf.get_feature_names_out().tolist()
         scalar_names = [
-            "word_count", "char_count", "question_marks",
-            "exclamations", "all_caps_words", "urgency_keywords",
-            "avg_word_length", "sentence_count",
-            "user_tier", "submission_hour", "submission_day",
-            "is_weekend", "is_outside_hours",
+            "word_count",
+            "char_count",
+            "question_marks",
+            "exclamations",
+            "all_caps_words",
+            "urgency_keywords",
+            "avg_word_length",
+            "sentence_count",
+            "user_tier",
+            "submission_hour",
+            "submission_day",
+            "is_weekend",
+            "is_outside_hours",
         ]
         return tfidf_names + scalar_names
 
     def get_top_features_per_class(
-        self,
-        classifier,
-        class_names: List[str],
-        top_n: int = 15
+        self, classifier, class_names: List[str], top_n: int = 15
     ) -> dict:
         """
         Extract top-N most important TF-IDF features per class.
@@ -184,7 +181,7 @@ class FeatureEngineer:
             result[class_name] = [
                 {
                     "feature": feature_names[idx],
-                    "importance": round(float(coefs[idx]), 4)
+                    "importance": round(float(coefs[idx]), 4),
                 }
                 for idx in top_indices
             ]

@@ -69,7 +69,7 @@ class ConnectionManager:
         # Auto-join role-based rooms
         if role:
             await self.join_room(connection_id, role)  # e.g., "agent" room
-        await self.join_room(connection_id, "all")      # everyone
+        await self.join_room(connection_id, "all")  # everyone
 
         logger.info(
             f"WebSocket connected: {connection_id} "
@@ -78,11 +78,14 @@ class ConnectionManager:
         )
 
         # Send welcome message with server time
-        await self.send_personal(connection_id, {
-            "type": "connected",
-            "connection_id": connection_id,
-            "server_time": datetime.now(timezone.utc).isoformat(),
-        })
+        await self.send_personal(
+            connection_id,
+            {
+                "type": "connected",
+                "connection_id": connection_id,
+                "server_time": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
     async def disconnect(self, connection_id: str) -> None:
         """
@@ -119,11 +122,7 @@ class ConnectionManager:
         if room in self._rooms:
             self._rooms[room].discard(connection_id)
 
-    async def send_personal(
-        self,
-        connection_id: str,
-        message: dict
-    ) -> bool:
+    async def send_personal(self, connection_id: str, message: dict) -> bool:
         """
         Send a JSON message to a single connection.
 
@@ -137,9 +136,7 @@ class ConnectionManager:
             await websocket.send_text(json.dumps(message, default=str))
             return True
         except Exception as e:
-            logger.warning(
-                f"Failed to send to {connection_id}: {e}. Disconnecting."
-            )
+            logger.warning(f"Failed to send to {connection_id}: {e}. Disconnecting.")
             await self.disconnect(connection_id)
             return False
 
@@ -150,9 +147,7 @@ class ConnectionManager:
         Returns:
             Number of connections successfully sent to.
         """
-        connection_ids = list(
-            self._user_connections.get(user_id, set())
-        )
+        connection_ids = list(self._user_connections.get(user_id, set()))
         sent = 0
         for cid in connection_ids:
             if await self.send_personal(cid, message):
@@ -182,36 +177,46 @@ class ConnectionManager:
 
     async def broadcast_ticket_update(self, ticket_data: dict) -> None:
         """Convenience method — broadcast a ticket update event."""
-        await self.broadcast_all({
-            "type": "ticket_update",
-            "data": ticket_data,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        await self.broadcast_all(
+            {
+                "type": "ticket_update",
+                "data": ticket_data,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
     async def broadcast_root_cause_alert(self, alert_data: dict) -> None:
         """Convenience method — broadcast a root cause alert."""
-        await self.broadcast_all({
-            "type": "root_cause_alert",
-            "data": alert_data,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        await self.broadcast_all(
+            {
+                "type": "root_cause_alert",
+                "data": alert_data,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
 
     async def broadcast_sla_warning(self, ticket_id: str, minutes_left: int) -> None:
         """Convenience method — broadcast an SLA breach warning."""
-        await self.broadcast_to_room("agent", {
-            "type": "sla_warning",
-            "ticket_id": ticket_id,
-            "minutes_left": minutes_left,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        await self.broadcast_to_room(
+            "agent",
+            {
+                "type": "sla_warning",
+                "ticket_id": ticket_id,
+                "minutes_left": minutes_left,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
     async def broadcast_new_ticket(self, ticket_data: dict) -> None:
         """Convenience method — notify agents of a new ticket."""
-        await self.broadcast_to_room("agent", {
-            "type": "new_ticket",
-            "data": ticket_data,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        await self.broadcast_to_room(
+            "agent",
+            {
+                "type": "new_ticket",
+                "data": ticket_data,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
     async def broadcast_security_alert(self, alert_data: dict) -> None:
         """

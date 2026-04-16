@@ -32,7 +32,7 @@ def truncate_text(text: str, max_chars: int = 200) -> str:
     """Safely truncate text to max_chars, appending '...' if cut."""
     if len(text) <= max_chars:
         return text
-    return text[:max_chars - 3] + "..."
+    return text[: max_chars - 3] + "..."
 
 
 def safe_divide(numerator: float, denominator: float, default: float = 0.0) -> float:
@@ -59,11 +59,7 @@ def mongo_doc_to_dict(doc: Optional[dict]) -> Optional[dict]:
     return result
 
 
-def paginate(
-    total: int,
-    page: int,
-    page_size: int
-) -> dict:
+def paginate(total: int, page: int, page_size: int) -> dict:
     """
     Compute pagination metadata.
 
@@ -71,6 +67,7 @@ def paginate(
         Dict with total, page, page_size, total_pages, skip, limit.
     """
     import math
+
     total_pages = math.ceil(total / page_size) if page_size > 0 else 0
     skip = (page - 1) * page_size
     return {

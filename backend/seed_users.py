@@ -61,13 +61,13 @@ async def seed():
             continue
 
         doc = {
-            "user_id":    str(uuid.uuid4()),
-            "name":       u["name"],
-            "email":      u["email"],
+            "user_id": str(uuid.uuid4()),
+            "name": u["name"],
+            "email": u["email"],
             "password_hash": pwd_context.hash(u["password"]),
-            "role":       u["role"],
-            "tier":       u["tier"],
-            "is_active":  True,
+            "role": u["role"],
+            "tier": u["tier"],
+            "is_active": True,
             "created_at": datetime.now(timezone.utc),
         }
         await users_col.insert_one(doc)

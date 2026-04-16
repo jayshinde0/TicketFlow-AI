@@ -54,6 +54,7 @@ async def _load_user(user_id: str) -> Optional[dict]:
     """Load user document from MongoDB. Returns None if not found."""
     try:
         from core.database import get_users_collection
+
         collection = get_users_collection()
         user = await collection.find_one({"user_id": user_id})
         if user:
@@ -110,6 +111,7 @@ async def get_current_user_optional(
 
 def require_role(*roles: str):
     """Dependency factory for role-based access control."""
+
     async def _guard(current_user: dict = Depends(get_current_user)) -> dict:
         if current_user.get("role") not in roles:
             raise HTTPException(
@@ -117,4 +119,5 @@ def require_role(*roles: str):
                 detail=f"Access denied. Required roles: {', '.join(roles)}",
             )
         return current_user
+
     return _guard

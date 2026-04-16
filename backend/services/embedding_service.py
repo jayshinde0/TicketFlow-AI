@@ -14,7 +14,7 @@ from core.config import settings
 class EmbeddingService:
     """
     Wraps sentence-transformers all-MiniLM-L6-v2 for embedding generation.
-    
+
     - Lazy-loaded on first use to avoid slow startup
     - Thread-safe singleton model instance
     - Async wrappers to avoid blocking FastAPI event loop
@@ -32,9 +32,11 @@ class EmbeddingService:
         # Model will be loaded after cache download completes via background thread
         self._model = "FALLBACK"
         import threading
+
         def _try_load():
             try:
                 import os
+
                 cache_dir = os.path.expanduser("~/.cache/huggingface/hub")
                 has_cache = os.path.exists(cache_dir) and any(
                     self._model_name.replace("/", "--") in d
@@ -42,13 +44,18 @@ class EmbeddingService:
                 )
                 if not has_cache:
                     from sentence_transformers import SentenceTransformer
+
                     SentenceTransformer(self._model_name)  # download to cache
-                    logger.info("Sentence transformer cached — restart server to enable.")
+                    logger.info(
+                        "Sentence transformer cached — restart server to enable."
+                    )
                 # If cached, server restart will auto-load
             except Exception as e:
                 logger.debug(f"Background model prep: {e}")
+
         threading.Thread(target=_try_load, daemon=True).start()
         return self._model
+
     def _fallback_embed(self, text: str) -> np.ndarray:
         """TF-IDF-style fallback embedding using character n-gram hashing."""
         vec = np.zeros(384, dtype=np.float32)
@@ -75,7 +82,6 @@ class EmbeddingService:
             show_progress_bar=False,
         )
         return embedding.astype(np.float32)
-
 
     def embed_batch(self, texts: List[str], batch_size: int = 64) -> np.ndarray:
         """

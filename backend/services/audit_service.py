@@ -82,7 +82,8 @@ class AuditService:
                 sentiment_score=sentiment_score,
                 generated_response_preview=(
                     generated_response_preview[:200]
-                    if generated_response_preview else None
+                    if generated_response_preview
+                    else None
                 ),
                 hallucination_detected=hallucination_detected,
                 fallback_used=fallback_used,
@@ -123,7 +124,12 @@ class AuditService:
                 return False
             result = await collection.update_one(
                 {"_id": latest["_id"]},
-                {"$set": {"agent_action": agent_action, "final_outcome": final_outcome}},
+                {
+                    "$set": {
+                        "agent_action": agent_action,
+                        "final_outcome": final_outcome,
+                    }
+                },
             )
             return result.modified_count > 0
         except Exception as e:

@@ -66,6 +66,7 @@ class QwenProvider:
         if name in self._prompts:
             return self._prompts[name]
         from pathlib import Path
+
         prompt_path = Path(__file__).parent.parent / "prompts" / f"{name}.txt"
         if not prompt_path.exists():
             logger.warning(f"Prompt template '{name}' not found at {prompt_path}")
@@ -108,10 +109,17 @@ class QwenProvider:
                 error_str = str(e).lower()
                 is_transient = any(
                     kw in error_str
-                    for kw in ("timeout", "connection", "rate_limit", "503", "502", "429")
+                    for kw in (
+                        "timeout",
+                        "connection",
+                        "rate_limit",
+                        "503",
+                        "502",
+                        "429",
+                    )
                 )
                 if is_transient and attempt <= self._max_retries:
-                    wait = 2 ** attempt
+                    wait = 2**attempt
                     logger.warning(
                         f"Qwen attempt {attempt}/{self._max_retries + 1} failed "
                         f"({type(e).__name__}). Retrying in {wait}s..."
@@ -131,7 +139,9 @@ class QwenProvider:
         max_tokens: int = 1024,
     ) -> Optional[Dict[str, Any]]:
         """Generate and parse a JSON response. Returns None on failure."""
-        raw = await self.generate(prompt, temperature=temperature, max_tokens=max_tokens)
+        raw = await self.generate(
+            prompt, temperature=temperature, max_tokens=max_tokens
+        )
         if not raw:
             return None
 
@@ -154,7 +164,7 @@ class QwenProvider:
         end = raw.rfind("}")
         if start != -1 and end > start:
             try:
-                return json.loads(raw[start:end + 1])
+                return json.loads(raw[start : end + 1])
             except json.JSONDecodeError:
                 pass
 

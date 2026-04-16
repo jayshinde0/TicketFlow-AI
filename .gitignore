@@ -21,6 +21,7 @@ backend/ml/artifacts/*.pkl
 backend/ml/artifacts/*.json
 backend/chroma/
 backend/chroma_data/
+chroma_data/
 
 # Logs
 backend/*.log

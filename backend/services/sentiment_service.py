@@ -9,7 +9,6 @@ from loguru import logger
 
 from core.config import settings
 
-
 # Label mapping for the Cardiff NLP model
 LABEL_MAP = {
     "LABEL_0": "NEGATIVE",
@@ -24,7 +23,7 @@ class SentimentService:
 
     Model: cardiffnlp/twitter-roberta-base-sentiment (runs on CPU)
     - NEGATIVE, NEUTRAL, POSITIVE + confidence score
-    
+
     Integration rules:
     - NEGATIVE with score > 0.85 → reduce AI confidence by 0.08,
                                     boost priority, add FRUSTRATED tag
@@ -42,9 +41,9 @@ class SentimentService:
         # Enable the real model by uncommenting the block below once performance is tuned
         self._pipeline = None
         self._loaded = True
-        logger.debug("Sentiment: using keyword fallback (HuggingFace model disabled for speed)")
-
-
+        logger.debug(
+            "Sentiment: using keyword fallback (HuggingFace model disabled for speed)"
+        )
 
     def _fallback_sentiment(self, text: str) -> Tuple[str, float]:
         """
@@ -53,14 +52,37 @@ class SentimentService:
         """
         text_lower = text.lower()
         negative_keywords = [
-            "angry", "frustrated", "terrible", "horrible", "awful",
-            "worst", "unacceptable", "disgusting", "furious", "hate",
-            "outrageous", "ridiculous", "useless", "incompetent",
-            "emergency", "critical", "urgent", "asap", "immediately",
+            "angry",
+            "frustrated",
+            "terrible",
+            "horrible",
+            "awful",
+            "worst",
+            "unacceptable",
+            "disgusting",
+            "furious",
+            "hate",
+            "outrageous",
+            "ridiculous",
+            "useless",
+            "incompetent",
+            "emergency",
+            "critical",
+            "urgent",
+            "asap",
+            "immediately",
         ]
         positive_keywords = [
-            "thank", "great", "excellent", "appreciate", "good",
-            "helpful", "resolved", "working", "fixed", "perfect",
+            "thank",
+            "great",
+            "excellent",
+            "appreciate",
+            "good",
+            "helpful",
+            "resolved",
+            "working",
+            "fixed",
+            "perfect",
         ]
 
         neg_score = sum(1 for kw in negative_keywords if kw in text_lower)
@@ -106,8 +128,7 @@ class SentimentService:
                 label, score = self._fallback_sentiment(text)
 
         is_frustrated = (
-            label == "NEGATIVE"
-            and score > settings.SENTIMENT_NEGATIVE_THRESHOLD
+            label == "NEGATIVE" and score > settings.SENTIMENT_NEGATIVE_THRESHOLD
         )
 
         return {

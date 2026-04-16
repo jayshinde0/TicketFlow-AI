@@ -35,16 +35,26 @@ _simulation_state = {
 
 # Sample ticket data for simulation
 SAMPLE_SUBJECTS = [
-    "VPN connection keeps dropping", "Cannot access shared drive",
-    "Email not syncing on mobile", "Password reset not working",
-    "Laptop running extremely slow", "Software license expired",
-    "Suspicious email received", "New employee onboarding request",
-    "Database backup failed", "Printer not connecting to network",
-    "Two-factor auth not sending codes", "Application crashes on startup",
-    "Network outage in Building 3", "Invoice discrepancy reported",
-    "Unauthorized login attempt detected", "Cannot connect to WiFi",
-    "Server disk space running low", "Antivirus scan found threats",
-    "Request for new software installation", "Monitor flickering issues",
+    "VPN connection keeps dropping",
+    "Cannot access shared drive",
+    "Email not syncing on mobile",
+    "Password reset not working",
+    "Laptop running extremely slow",
+    "Software license expired",
+    "Suspicious email received",
+    "New employee onboarding request",
+    "Database backup failed",
+    "Printer not connecting to network",
+    "Two-factor auth not sending codes",
+    "Application crashes on startup",
+    "Network outage in Building 3",
+    "Invoice discrepancy reported",
+    "Unauthorized login attempt detected",
+    "Cannot connect to WiFi",
+    "Server disk space running low",
+    "Antivirus scan found threats",
+    "Request for new software installation",
+    "Monitor flickering issues",
 ]
 
 SAMPLE_DESCRIPTIONS = [
@@ -68,15 +78,20 @@ async def start_simulation(
 ):
     """Start a ticket generation simulation."""
     if _simulation_state["running"]:
-        return {"status": "already_running", "tickets_generated": _simulation_state["tickets_generated"]}
+        return {
+            "status": "already_running",
+            "tickets_generated": _simulation_state["tickets_generated"],
+        }
 
     _simulation_state["running"] = True
     _simulation_state["tickets_generated"] = 0
     _simulation_state["start_time"] = datetime.now(timezone.utc).isoformat()
     _simulation_state["speed_multiplier"] = config.speed_multiplier
     _simulation_state["stats"] = {
-        "auto_resolved": 0, "suggested_to_agent": 0,
-        "escalated_to_human": 0, "avg_confidence": 0.0,
+        "auto_resolved": 0,
+        "suggested_to_agent": 0,
+        "escalated_to_human": 0,
+        "avg_confidence": 0.0,
         "total_processing_ms": 0,
     }
 
@@ -102,7 +117,9 @@ async def start_simulation(
                         ticket_id=ticket_id,
                         subject=subject,
                         description=description,
-                        user_tier=random.choice(["Free", "Standard", "Premium", "Enterprise"]),
+                        user_tier=random.choice(
+                            ["Free", "Standard", "Premium", "Enterprise"]
+                        ),
                         now=now,
                     )
 
@@ -120,10 +137,10 @@ async def start_simulation(
                     prev_avg = _simulation_state["stats"]["avg_confidence"]
                     new_conf = ai_result.get("confidence_score", 0)
                     _simulation_state["stats"]["avg_confidence"] = (
-                        (prev_avg * (total - 1) + new_conf) / total
-                    )
-                    _simulation_state["stats"]["total_processing_ms"] += (
-                        ai_result.get("processing_time_ms", 0)
+                        prev_avg * (total - 1) + new_conf
+                    ) / total
+                    _simulation_state["stats"]["total_processing_ms"] += ai_result.get(
+                        "processing_time_ms", 0
                     )
 
                     # Store the simulated ticket
@@ -152,7 +169,9 @@ async def start_simulation(
             logger.error(f"Simulation error: {e}")
         finally:
             _simulation_state["running"] = False
-            logger.info(f"Simulation ended: {_simulation_state['tickets_generated']} tickets generated")
+            logger.info(
+                f"Simulation ended: {_simulation_state['tickets_generated']} tickets generated"
+            )
 
     # Run simulation in background
     asyncio.create_task(run_simulation())

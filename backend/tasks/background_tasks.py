@@ -2,6 +2,7 @@
 tasks/background_tasks.py — FastAPI BackgroundTasks wrappers.
 Replaces Celery entirely. Tasks run in the same process as the API server.
 """
+
 import asyncio
 from loguru import logger
 
@@ -16,6 +17,7 @@ async def build_knowledge_article_task(
     """Background task: build a KB article from a resolved ticket."""
     try:
         from services.knowledge_builder_service import knowledge_builder_service
+
         await knowledge_builder_service.build_article_from_ticket(
             ticket_id=ticket_id,
             ticket_text=ticket_text,

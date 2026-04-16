@@ -29,6 +29,7 @@ def ensure_nltk_data():
 # ─── spaCy model loader ───────────────────────────────────────────────
 _spacy_nlp = None
 
+
 def get_spacy_nlp():
     """Lazy-load spaCy model (only once per process)."""
     global _spacy_nlp
@@ -61,12 +62,25 @@ class NLPService:
     def __init__(self):
         ensure_nltk_data()
         from nltk.corpus import stopwords
+
         self._stopwords = set(stopwords.words("english"))
         # Add IT-specific stopwords that add noise
-        self._stopwords.update({
-            "please", "help", "thank", "thanks", "hi", "hello",
-            "dear", "regards", "sincerely", "team", "sir", "madam",
-        })
+        self._stopwords.update(
+            {
+                "please",
+                "help",
+                "thank",
+                "thanks",
+                "hi",
+                "hello",
+                "dear",
+                "regards",
+                "sincerely",
+                "team",
+                "sir",
+                "madam",
+            }
+        )
         self._nlp = None  # lazy-loaded
 
     def _get_nlp(self):
@@ -94,6 +108,7 @@ class NLPService:
         - Lemmatize
         - Remove stopwords and punctuation
         - Filter short tokens
+        - PRESERVE domain keywords (VPN, timeout, etc.)
 
         Falls back to basic_clean if spaCy is unavailable.
         """
@@ -102,15 +117,27 @@ class NLPService:
         if nlp is None:
             # Simple fallback: just lowercase + split + filter stopwords
             tokens = text.lower().split()
-            filtered = [
-                t for t in tokens
-                if t not in self._stopwords and len(t) > 2
-            ]
+            filtered = [t for t in tokens if t not in self._stopwords and len(t) > 2]
             return " ".join(filtered)
 
         doc = nlp(text[:5000])  # cap at 5000 chars for spaCy
         tokens = []
+
+        # Domain keywords to PRESERVE (don't remove)
+        domain_keywords = set()
+        for category_kw_list in settings.DOMAIN_KEYWORDS.values():
+            for kw in category_kw_list:
+                domain_keywords.add(kw.lower())
+
         for token in doc:
+            lemma = token.lemma_.lower().strip()
+
+            # PRESERVE domain keywords even if they're in stopwords
+            if lemma in domain_keywords:
+                if len(lemma) > 1:
+                    tokens.append(lemma)
+                continue
+
             # Skip: stopwords, punctuation, spaces, very short tokens
             if (
                 token.is_stop
@@ -120,8 +147,8 @@ class NLPService:
                 or token.lemma_ in self._stopwords
             ):
                 continue
+
             # Use lemma (lowercase)
-            lemma = token.lemma_.lower().strip()
             if lemma and len(lemma) > 1:
                 tokens.append(lemma)
 

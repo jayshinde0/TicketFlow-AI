@@ -7,20 +7,42 @@ import re
 import unicodedata
 from typing import List
 
-
 # Common English contractions to expand before cleaning
 CONTRACTIONS: dict = {
-    "can't": "cannot", "won't": "will not", "n't": " not",
-    "'re": " are", "'ve": " have", "'ll": " will", "'d": " would",
-    "'m": " am", "it's": "it is", "that's": "that is",
-    "i'm": "i am", "you're": "you are", "he's": "he is",
-    "she's": "she is", "we're": "we are", "they're": "they are",
-    "i've": "i have", "you've": "you have", "we've": "we have",
-    "i'll": "i will", "you'll": "you will", "they'll": "they will",
-    "i'd": "i would", "you'd": "you would", "isn't": "is not",
-    "aren't": "are not", "wasn't": "was not", "weren't": "were not",
-    "hasn't": "has not", "haven't": "have not", "hadn't": "had not",
-    "doesn't": "does not", "don't": "do not", "didn't": "did not",
+    "can't": "cannot",
+    "won't": "will not",
+    "n't": " not",
+    "'re": " are",
+    "'ve": " have",
+    "'ll": " will",
+    "'d": " would",
+    "'m": " am",
+    "it's": "it is",
+    "that's": "that is",
+    "i'm": "i am",
+    "you're": "you are",
+    "he's": "he is",
+    "she's": "she is",
+    "we're": "we are",
+    "they're": "they are",
+    "i've": "i have",
+    "you've": "you have",
+    "we've": "we have",
+    "i'll": "i will",
+    "you'll": "you will",
+    "they'll": "they will",
+    "i'd": "i would",
+    "you'd": "you would",
+    "isn't": "is not",
+    "aren't": "are not",
+    "wasn't": "was not",
+    "weren't": "were not",
+    "hasn't": "has not",
+    "haven't": "have not",
+    "hadn't": "had not",
+    "doesn't": "does not",
+    "don't": "do not",
+    "didn't": "did not",
 }
 
 # Regex for common noise patterns
@@ -31,18 +53,19 @@ RE_TICKET_ID = re.compile(r"\bTKT-\d+\b", re.IGNORECASE)
 RE_MULTIPLE_SPACES = re.compile(r"\s{2,}")
 RE_NON_ASCII = re.compile(r"[^\x00-\x7F]+")
 RE_SPECIAL_CHARS = re.compile(r"[^a-zA-Z0-9\s.,!?'-]")
-RE_REPEATED_CHARS = re.compile(r"(.)\1{3,}")   # aaaa → a
+RE_REPEATED_CHARS = re.compile(r"(.)\1{3,}")  # aaaa → a
 
 
 def expand_contractions(text: str) -> str:
     """Expand English contractions: can't → cannot, won't → will not."""
     # Case-insensitive replacement
     pattern = re.compile(
-        "(%s)" % "|".join(re.escape(k) for k in CONTRACTIONS.keys()),
-        re.IGNORECASE
+        "(%s)" % "|".join(re.escape(k) for k in CONTRACTIONS.keys()), re.IGNORECASE
     )
+
     def replace(match):
         return CONTRACTIONS[match.group(0).lower()]
+
     return pattern.sub(replace, text)
 
 
@@ -107,10 +130,28 @@ def count_urgency_keywords(text: str) -> int:
     Used as an ML feature alongside TF-IDF.
     """
     urgency_words = {
-        "urgent", "asap", "immediately", "critical", "emergency",
-        "broken", "down", "outage", "cannot", "unable", "failed",
-        "error", "crash", "blocked", "help", "please", "important",
-        "serious", "severe", "priority", "escalate", "stuck"
+        "urgent",
+        "asap",
+        "immediately",
+        "critical",
+        "emergency",
+        "broken",
+        "down",
+        "outage",
+        "cannot",
+        "unable",
+        "failed",
+        "error",
+        "crash",
+        "blocked",
+        "help",
+        "please",
+        "important",
+        "serious",
+        "severe",
+        "priority",
+        "escalate",
+        "stuck",
     }
     text_lower = text.lower()
     return sum(1 for word in urgency_words if word in text_lower)
@@ -142,8 +183,6 @@ def extract_text_features(text: str) -> dict:
         "exclamation_count": text.count("!"),
         "all_caps_word_count": count_all_caps_words(text),
         "urgency_keyword_count": count_urgency_keywords(text),
-        "avg_word_length": (
-            sum(len(w) for w in words) / len(words) if words else 0.0
-        ),
+        "avg_word_length": (sum(len(w) for w in words) / len(words) if words else 0.0),
         "sentence_count": len(sentences),
     }

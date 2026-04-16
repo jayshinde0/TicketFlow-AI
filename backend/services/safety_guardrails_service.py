@@ -102,11 +102,13 @@ class SafetyGuardrailsService:
         for name, pattern, message in self.PATTERNS:
             matches = pattern.findall(response)
             if matches:
-                violations.append({
-                    "type": name,
-                    "message": message,
-                    "count": len(matches),
-                })
+                violations.append(
+                    {
+                        "type": name,
+                        "message": message,
+                        "count": len(matches),
+                    }
+                )
                 # Redact the matches
                 sanitized = pattern.sub(f"[REDACTED-{name.upper()}]", sanitized)
 
@@ -114,11 +116,13 @@ class SafetyGuardrailsService:
         response_lower = response.lower()
         for phrase in self.DANGEROUS_INSTRUCTIONS:
             if phrase in response_lower:
-                violations.append({
-                    "type": "dangerous_instruction",
-                    "message": f"Dangerous instruction detected: '{phrase}'",
-                    "count": 1,
-                })
+                violations.append(
+                    {
+                        "type": "dangerous_instruction",
+                        "message": f"Dangerous instruction detected: '{phrase}'",
+                        "count": 1,
+                    }
+                )
 
         # Generate SHA256 hash for audit trail
         response_hash = hashlib.sha256(response.encode("utf-8")).hexdigest()
@@ -149,8 +153,11 @@ class SafetyGuardrailsService:
             return False
 
         high_severity_types = {
-            "credit_card", "ssn", "private_key",
-            "password_plain", "connection_string",
+            "credit_card",
+            "ssn",
+            "private_key",
+            "password_plain",
+            "connection_string",
         }
         for violation in validation_result["violations"]:
             if violation["type"] in high_severity_types:

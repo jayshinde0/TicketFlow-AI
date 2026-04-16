@@ -25,15 +25,13 @@ class DatabaseManager:
         self.client = AsyncIOMotorClient(
             settings.MONGODB_URL,
             serverSelectionTimeoutMS=5000,  # 5 second connection timeout
-            maxPoolSize=50,                  # connection pool size
+            maxPoolSize=50,  # connection pool size
         )
         self.db = self.client[settings.DATABASE_NAME]
 
         # Verify connection by pinging the server
         await self.client.admin.command("ping")
-        logger.info(
-            f"Connected to MongoDB — database: '{settings.DATABASE_NAME}'"
-        )
+        logger.info(f"Connected to MongoDB — database: '{settings.DATABASE_NAME}'")
 
     async def disconnect(self) -> None:
         """Close Motor connection cleanly."""
@@ -48,6 +46,7 @@ db_manager = DatabaseManager()
 
 # ─── Collection accessors ─────────────────────────────────────────────
 # Use these in routers and services; never access db_manager.db directly.
+
 
 def get_tickets_collection():
     """Support tickets — core data store."""
@@ -101,9 +100,7 @@ async def create_indexes() -> None:
     await db["tickets"].create_index("user_id")
     await db["tickets"].create_index("status")
     await db["tickets"].create_index("created_at")
-    await db["tickets"].create_index(
-        [("ai_analysis.category", 1), ("status", 1)]
-    )
+    await db["tickets"].create_index([("ai_analysis.category", 1), ("status", 1)])
     await db["tickets"].create_index(
         [("ai_analysis.routing_decision", 1), ("status", 1)]
     )
@@ -124,9 +121,7 @@ async def create_indexes() -> None:
     await db["audit_logs"].create_index("model_version")
 
     # Root cause alerts: open incidents by category
-    await db["root_cause_alerts"].create_index(
-        [("status", 1), ("category", 1)]
-    )
+    await db["root_cause_alerts"].create_index([("status", 1), ("category", 1)])
     await db["root_cause_alerts"].create_index("timestamp")
 
     # Knowledge articles: search and usage ranking

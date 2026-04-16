@@ -18,7 +18,7 @@ celery_app = Celery(
 celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
-    result_expires=3600,       # 1 hour
+    result_expires=3600,  # 1 hour
     timezone="UTC",
     enable_utc=True,
     task_routes={
@@ -31,7 +31,7 @@ celery_app.conf.update(
 @celery_app.task(
     bind=True,
     max_retries=3,
-    default_retry_delay=60,   # retry after 60 seconds
+    default_retry_delay=60,  # retry after 60 seconds
     name="tasks.ticket_tasks.build_knowledge_article",
 )
 def build_knowledge_article(
@@ -50,6 +50,7 @@ def build_knowledge_article(
 
     async def _run():
         from services.knowledge_builder_service import knowledge_builder_service
+
         await knowledge_builder_service.build_article_from_ticket(
             ticket_id=ticket_id,
             ticket_text=ticket_text,

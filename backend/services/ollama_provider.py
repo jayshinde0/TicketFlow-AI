@@ -26,7 +26,7 @@ class OllamaProvider:
     def __init__(self):
         self._base_url: str = settings.OLLAMA_URL
         self._model: str = settings.OLLAMA_MODEL
-        self._timeout: float = 30.0
+        self._timeout: float = 60.0  # Increased from 30s to 60s
         self._max_retries: int = 2
         self._prompts: Dict[str, str] = {}
 
@@ -37,6 +37,7 @@ class OllamaProvider:
             return self._prompts[name]
 
         from pathlib import Path
+
         prompt_dir = Path(__file__).parent.parent / "prompts"
         prompt_path = prompt_dir / f"{name}.txt"
 
@@ -94,7 +95,7 @@ class OllamaProvider:
             except (httpx.TimeoutException, httpx.ConnectError) as e:
                 last_error = e
                 if attempt <= self._max_retries:
-                    wait = 2 ** attempt
+                    wait = 2**attempt
                     logger.warning(
                         f"Ollama attempt {attempt}/{self._max_retries + 1} failed "
                         f"({type(e).__name__}). Retrying in {wait}s..."
@@ -122,7 +123,9 @@ class OllamaProvider:
         Generate a response and parse it as JSON.
         Returns None if generation fails or JSON is invalid.
         """
-        raw = await self.generate(prompt, temperature=temperature, max_tokens=max_tokens)
+        raw = await self.generate(
+            prompt, temperature=temperature, max_tokens=max_tokens
+        )
         if not raw:
             return None
 
@@ -134,6 +137,7 @@ class OllamaProvider:
 
         # Try to find JSON block in markdown fences
         import re
+
         json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", raw, re.DOTALL)
         if json_match:
             try:
@@ -146,7 +150,7 @@ class OllamaProvider:
         end = raw.rfind("}")
         if start != -1 and end > start:
             try:
-                return json.loads(raw[start:end + 1])
+                return json.loads(raw[start : end + 1])
             except json.JSONDecodeError:
                 pass
 
@@ -172,7 +176,7 @@ class OllamaProvider:
                 "You are a support ticket classifier. Classify the following ticket "
                 "into exactly ONE of these categories: {categories}\n\n"
                 "Ticket: {text}\n\n"
-                "Respond with ONLY a JSON object: {{\"category\": \"<category>\", \"confidence\": <0.0-1.0>}}"
+                'Respond with ONLY a JSON object: {{"category": "<category>", "confidence": <0.0-1.0>}}'
             )
 
         prompt = template.format(

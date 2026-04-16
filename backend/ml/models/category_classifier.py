@@ -21,12 +21,19 @@ from sklearn.metrics import (
     accuracy_score,
 )
 
-
 ARTIFACT_DIR = Path(__file__).parent.parent / "artifacts"
 
 ALL_CATEGORIES = [
-    "Network", "Auth", "Software", "Hardware", "Access",
-    "Billing", "Email", "Security", "ServiceRequest", "Database"
+    "Network",
+    "Auth",
+    "Software",
+    "Hardware",
+    "Access",
+    "Billing",
+    "Email",
+    "Security",
+    "ServiceRequest",
+    "Database",
 ]
 
 
@@ -75,8 +82,7 @@ class CategoryClassifier:
 
         if use_grid_search:
             logger.info(
-                "Running 5-fold GridSearch over "
-                "C: [1.0, 5.0, 10.0, 20.0, 50.0]..."
+                "Running 5-fold GridSearch over " "C: [1.0, 5.0, 10.0, 20.0, 50.0]..."
             )
             param_grid = {"C": [1.0, 5.0, 10.0, 20.0, 50.0]}
             base_clf = LogisticRegression(
@@ -133,9 +139,7 @@ class CategoryClassifier:
             (predicted_category, confidence, prob_dict)
         """
         if not self._trained:
-            raise RuntimeError(
-                "Not trained. Call train() or load() first."
-            )
+            raise RuntimeError("Not trained. Call train() or load() first.")
 
         probs = self.classifier.predict_proba(X)[0]
         predicted_idx = int(np.argmax(probs))
@@ -179,19 +183,16 @@ class CategoryClassifier:
         accuracy = float(accuracy_score(y_arr, y_pred))
 
         report = classification_report(
-            y_arr, y_pred,
+            y_arr,
+            y_pred,
             target_names=ALL_CATEGORIES,
             output_dict=True,
             zero_division=0,
         )
         cm = confusion_matrix(y_arr, y_pred, labels=ALL_CATEGORIES)
 
-        logger.info(
-            f"Evaluation — Macro F1: {macro_f1:.4f} | Accuracy: {accuracy:.4f}"
-        )
-        logger.info(
-            f"{'Category':<18} {'Precision':>10} {'Recall':>8} {'F1':>8}"
-        )
+        logger.info(f"Evaluation — Macro F1: {macro_f1:.4f} | Accuracy: {accuracy:.4f}")
+        logger.info(f"{'Category':<18} {'Precision':>10} {'Recall':>8} {'F1':>8}")
         logger.info("-" * 50)
         for cat in ALL_CATEGORIES:
             if cat in report:
@@ -207,11 +208,12 @@ class CategoryClassifier:
             "per_category": {
                 cat: {
                     "precision": round(report[cat]["precision"], 4),
-                    "recall":    round(report[cat]["recall"], 4),
-                    "f1":        round(report[cat]["f1-score"], 4),
-                    "support":   int(report[cat]["support"]),
+                    "recall": round(report[cat]["recall"], 4),
+                    "f1": round(report[cat]["f1-score"], 4),
+                    "support": int(report[cat]["support"]),
                 }
-                for cat in ALL_CATEGORIES if cat in report
+                for cat in ALL_CATEGORIES
+                if cat in report
             },
             "confusion_matrix": cm.tolist(),
         }
@@ -227,10 +229,7 @@ class CategoryClassifier:
         coefs = self.classifier.coef_[cat_idx]
         feature_arr = np.array(self._feature_names)
         top_indices = np.argsort(coefs)[::-1][:n]
-        return [
-            (str(feature_arr[i]), round(float(coefs[i]), 4))
-            for i in top_indices
-        ]
+        return [(str(feature_arr[i]), round(float(coefs[i]), 4)) for i in top_indices]
 
     def get_all_top_features(self, n: int = 5) -> Dict[str, List[Tuple[str, float]]]:
         """Top N features for all categories. Used by ML dashboard."""

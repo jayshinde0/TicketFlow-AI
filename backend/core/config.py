@@ -8,6 +8,7 @@ from pydantic import Field
 from typing import Dict, List
 import os
 
+
 class Settings(BaseSettings):
     # ─── Application ───────────────────────────────────────────────────
     APP_NAME: str = "TicketFlow AI"
@@ -16,29 +17,23 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
 
     # ─── MongoDB ───────────────────────────────────────────────────────
-    MONGODB_URL: str = Field(
-        default="mongodb://localhost:27017", env="MONGODB_URL"
-    )
+    MONGODB_URL: str = Field(default="mongodb://localhost:27017", env="MONGODB_URL")
     DATABASE_NAME: str = "ticketflow_ai"
 
     # ─── JWT Authentication ────────────────────────────────────────────
     JWT_SECRET_KEY: str = Field(
-        default="ticketflow-super-secret-change-in-production",
-        env="JWT_SECRET_KEY"
+        default="ticketflow-super-secret-change-in-production", env="JWT_SECRET_KEY"
     )
     # Alias used by security.py
     SECRET_KEY: str = Field(
-        default="ticketflow-super-secret-change-in-production",
-        env="JWT_SECRET_KEY"
+        default="ticketflow-super-secret-change-in-production", env="JWT_SECRET_KEY"
     )
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # ─── Redis ────────────────────────────────────────────────────────
-    REDIS_URL: str = Field(
-        default="redis://localhost:6379", env="REDIS_URL"
-    )
+    REDIS_URL: str = Field(default="redis://localhost:6379", env="REDIS_URL")
     REDIS_HOST: str = Field(default="localhost", env="REDIS_HOST")
     REDIS_PORT: int = Field(default=6379, env="REDIS_PORT")
 
@@ -47,9 +42,7 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = Field(default="ollama", env="LLM_PROVIDER")
 
     # ─── Ollama (local dev) ───────────────────────────────────────────
-    OLLAMA_URL: str = Field(
-        default="http://localhost:11434", env="OLLAMA_URL"
-    )
+    OLLAMA_URL: str = Field(default="http://localhost:11434", env="OLLAMA_URL")
     OLLAMA_MODEL: str = Field(default="mistral-nemo", env="OLLAMA_MODEL")
     # OLLAMA_MODEL: str = Field(default="qwen2.5-coder:7b", env="OLLAMA_MODEL")
     OLLAMA_TEMPERATURE: float = 0.3
@@ -70,13 +63,13 @@ class Settings(BaseSettings):
     CHROMA_ARTICLES_COLLECTION: str = "knowledge_articles"
 
     # ─── ML / AI Thresholds ───────────────────────────────────────────
-    CONFIDENCE_HIGH_THRESHOLD: float = 0.85   # >= this → AUTO_RESOLVE
-    CONFIDENCE_LOW_THRESHOLD: float = 0.60    # >= this → SUGGEST_TO_AGENT
-    SLA_BREACH_THRESHOLD: float = 0.75        # SLA override trigger
-    HALLUCINATION_SIM_THRESHOLD: float = 0.55 # min cosine sim for LLM response
-    FEEDBACK_RETRAIN_THRESHOLD: int = 200     # feedback count before retraining
-    DUPLICATE_EXACT_THRESHOLD: float = 0.95   # cosine sim for exact duplicate
-    DUPLICATE_POSSIBLE_THRESHOLD: float = 0.85 # cosine sim for possible duplicate
+    CONFIDENCE_HIGH_THRESHOLD: float = 0.85  # >= this → AUTO_RESOLVE
+    CONFIDENCE_LOW_THRESHOLD: float = 0.60  # >= this → SUGGEST_TO_AGENT
+    SLA_BREACH_THRESHOLD: float = 0.75  # SLA override trigger
+    HALLUCINATION_SIM_THRESHOLD: float = 0.55  # min cosine sim for LLM response
+    FEEDBACK_RETRAIN_THRESHOLD: int = 200  # feedback count before retraining
+    DUPLICATE_EXACT_THRESHOLD: float = 0.95  # cosine sim for exact duplicate
+    DUPLICATE_POSSIBLE_THRESHOLD: float = 0.85  # cosine sim for possible duplicate
 
     # ─── Sentence Transformer ─────────────────────────────────────────
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
@@ -88,95 +81,134 @@ class Settings(BaseSettings):
 
     # ─── Root Cause Detection Thresholds (tickets per time window) ────
     ROOT_CAUSE_THRESHOLDS: Dict[str, Dict] = {
-        "Network":        {"count": 8,  "window_minutes": 20},
-        "Auth":           {"count": 10, "window_minutes": 15},
-        "Software":       {"count": 5,  "window_minutes": 30},
-        "Security":       {"count": 3,  "window_minutes": 10},  # P0
-        "Database":       {"count": 5,  "window_minutes": 15},
-        "Email":          {"count": 8,  "window_minutes": 20},
-        "Hardware":       {"count": 6,  "window_minutes": 60},
-        "Access":         {"count": 7,  "window_minutes": 20},
-        "Billing":        {"count": 6,  "window_minutes": 30},
+        "Network": {"count": 8, "window_minutes": 20},
+        "Auth": {"count": 10, "window_minutes": 15},
+        "Software": {"count": 5, "window_minutes": 30},
+        "Security": {"count": 3, "window_minutes": 10},  # P0
+        "Database": {"count": 5, "window_minutes": 15},
+        "Email": {"count": 8, "window_minutes": 20},
+        "Hardware": {"count": 6, "window_minutes": 60},
+        "Access": {"count": 7, "window_minutes": 20},
+        "Billing": {"count": 6, "window_minutes": 30},
         "ServiceRequest": {"count": 10, "window_minutes": 30},
     }
 
     # ─── SLA Limits (minutes) per domain × priority ───────────────────
     SLA_LIMITS: Dict[str, Dict[str, int]] = {
-        "Network": {
-            "Low": 2880, "Medium": 480, "High": 120, "Critical": 30
-        },
-        "Auth": {
-            "Low": 1440, "Medium": 240, "High": 60, "Critical": 15
-        },
-        "Software": {
-            "Low": 4320, "Medium": 1440, "High": 240, "Critical": 60
-        },
-        "Hardware": {
-            "Low": 4320, "Medium": 1440, "High": 240, "Critical": 120
-        },
-        "Access": {
-            "Low": 2880, "Medium": 480, "High": 120, "Critical": 30
-        },
-        "Billing": {
-            "Low": 2880, "Medium": 1440, "High": 240, "Critical": 60
-        },
-        "Email": {
-            "Low": 2880, "Medium": 480, "High": 120, "Critical": 60
-        },
-        "Security": {
-            "Low": 30, "Medium": 30, "High": 30, "Critical": 5
-        },
-        "ServiceRequest": {
-            "Low": 2880, "Medium": 480, "High": 120, "Critical": 30
-        },
-        "Database": {
-            "Low": 1440, "Medium": 240, "High": 60, "Critical": 5
-        },
+        "Network": {"Low": 2880, "Medium": 480, "High": 120, "Critical": 30},
+        "Auth": {"Low": 1440, "Medium": 240, "High": 60, "Critical": 15},
+        "Software": {"Low": 4320, "Medium": 1440, "High": 240, "Critical": 60},
+        "Hardware": {"Low": 4320, "Medium": 1440, "High": 240, "Critical": 120},
+        "Access": {"Low": 2880, "Medium": 480, "High": 120, "Critical": 30},
+        "Billing": {"Low": 2880, "Medium": 1440, "High": 240, "Critical": 60},
+        "Email": {"Low": 2880, "Medium": 480, "High": 120, "Critical": 60},
+        "Security": {"Low": 30, "Medium": 30, "High": 30, "Critical": 5},
+        "ServiceRequest": {"Low": 2880, "Medium": 480, "High": 120, "Critical": 30},
+        "Database": {"Low": 1440, "Medium": 240, "High": 60, "Critical": 5},
     }
 
     # ─── Domain keywords for confidence boost ─────────────────────────
     DOMAIN_KEYWORDS: Dict[str, list] = {
-        "Network": [
-            "vpn", "wifi", "internet", "dns", "ping", "connection",
-            "timeout", "firewall", "network", "router", "packet", "latency"
-        ],
-        "Auth": [
-            "password", "login", "locked", "otp", "2fa", "sso",
-            "credentials", "token", "authentication", "unauthorized", "session"
-        ],
-        "Software": [
-            "crash", "error", "install", "update", "freeze", "exception",
-            "license", "bug", "software", "application", "app", "broken"
-        ],
-        "Hardware": [
-            "laptop", "screen", "keyboard", "printer", "battery",
-            "usb", "monitor", "hardware", "device", "port", "cable"
-        ],
-        "Access": [
-            "access", "permission", "grant", "revoke", "role", "admin",
-            "restricted", "denied", "rights", "privileged", "folder"
-        ],
-        "Billing": [
-            "invoice", "payment", "charge", "refund", "subscription",
-            "transaction", "billing", "invoice", "credit", "debit", "fee"
-        ],
-        "Email": [
-            "email", "inbox", "attachment", "spam", "mailbox",
-            "calendar", "smtp", "outlook", "gmail", "mail", "message"
-        ],
-        "Security": [
-            "phishing", "malware", "virus", "ransomware", "breach",
-            "unauthorized", "hack", "attack", "suspicious", "threat"
-        ],
-        "ServiceRequest": [
-            "request", "new", "setup", "provision", "create",
-            "onboarding", "license", "order", "need", "want", "please"
-        ],
+    "Network": [
+        "vpn", "wifi", "internet", "ping", "dns", "firewall",
+        "network", "connection", "timeout", "connectivity",
+        "routing", "gateway", "port", "bandwidth", "latency",
+        "router", "switch", "wan", "lan", "ip", "packet",
+        "tcp", "udp", "http", "https", "ssh", "rdp",
+        "connection timeout", "connection refused", "network unreachable",
+        "cannot connect", "no internet", "network error",
+    ],
+    "Auth": [
+        "password", "login", "locked", "otp", "2fa", "token",
+        "sso", "authentication", "credentials", "unlock", "reset",
+        "account", "access denied", "permission denied", "unauthorized",
+        "forbidden", "mfa", "multi factor", "password reset",
+        "account lockout", "sign in", "sign up", "login failed",
+    ],
+    "Security": [
+        "phishing", "malware", "virus", "ransomware", "breach",
+        "hack", "suspicious", "attack", "injection", "exploit",
+        "vulnerability", "compromised", "unauthorized access",
+        "security", "threat", "suspicious activity", "data breach",
+        "infection", "exploit", "sql injection", "xss",
+    ],
         "Database": [
-            "database", "sql", "query", "server", "cpu", "memory",
-            "disk", "backup", "db", "mongo", "postgres", "mysql"
-        ],
-    }
+        # Main database terms
+        "database", "db", "sql", "query", "mysql", "postgres",
+        "oracle", "mongodb", "redis", "mongodb", "mariadb",
+        
+        # Database issues
+        "access denied", "permission denied", "connection refused",
+        "connection timeout", "cannot connect", "database down",
+        "database crash", "database error", "database unavailable",
+        "database offline", "database is down",
+        
+        # Technical terms
+        "sql", "schema", "table", "row", "column", "index",
+        "replication", "backup", "restore", "transaction",
+        "slow query", "connection pool", "data corruption",
+        "disk space", "out of memory", "lock", "deadlock",
+        "slave", "master", "synchronization", "lag",
+        
+        # Production database
+        "production database", "prod database", "production db",
+        "database server", "database service",
+    ],
+    "Billing": [
+        # VERY specific - avoid false positives
+        "invoice", "payment", "refund", "subscription", "billing",
+        "credit card", "charge", "duplicate charge", "overcharge",
+        "payment method", "payment failed", "upgrade", "downgrade",
+        "receipt", "bill", "pricing", "cost", "subscription renewal",
+        "cancellation", "billing address", "invoice number",
+    ],
+    "Software": [
+        "crash", "error", "install", "update", "freeze", "exception",
+        "bug", "performance", "slow", "lag", "unresponsive", "hangs",
+        "failure", "not working", "broken", "unable to", "cannot",
+        "app crash", "application error", "javascript", "exception",
+        "debug", "warning", "failed", "warning message",
+    ],
+    "Hardware": [
+        "laptop", "screen", "keyboard", "printer", "battery", "usb",
+        "monitor", "device", "hardware", "physical", "broken",
+        "defective", "damaged", "not working", "flickering", "display",
+        "disconnected", "hard drive", "motherboard", "fan", "power",
+        "overheating", "storage", "memory", "ram", "ssd",
+    ],
+    "Email": [
+        "email", "inbox", "attachment", "spam", "mailbox", "smtp",
+        "calendar", "outlook", "gmail", "mail", "message", "send",
+        "receive", "delivery", "sync", "email not receiving",
+        "email not sending", "mail delivery", "mail server",
+        "imap", "pop3", "email client", "outlook sync",
+    ],
+        "Access": [
+        # Core access terms
+        "access", "permission", "grant", "revoke", "denied",
+        "access denied", "permission denied", "access error",
+        
+        # Role/Group terms
+        "role", "admin", "restricted", "group", "membership",
+        "can't access", "no access", "need access", "unable to access",
+        
+        # File/Folder terms
+        "folder access", "file access", "directory access",
+        "shared folder", "share", "sharepoint",
+        
+        # System access
+        "login", "logon", "sign in", "authentication",
+        "credentials", "username", "password",
+        "access control", "acl", "group policy", "ldap",
+        "active directory", "ad group", "domain",
+    ],
+    "ServiceRequest": [
+        "request", "new", "setup", "provision", "create", "onboarding",
+        "enable", "activate", "install", "configure", "license",
+        "can you", "please", "need", "want", "setup", "new user",
+        "new account", "new email", "new laptop", "provisioning",
+    ],
+}
 
     # ─── Auto-resolve targets per domain ─────────────────────────────
     AUTO_RESOLVE_TARGETS: Dict[str, float] = {
@@ -205,8 +237,12 @@ class Settings(BaseSettings):
 
     # Department taxonomy
     DEPARTMENT_TAXONOMY: List[str] = [
-        "NETWORK", "SOFTWARE", "DATABASE",
-        "SECURITY", "BILLING", "HR_FACILITIES",
+        "NETWORK",
+        "SOFTWARE",
+        "DATABASE",
+        "SECURITY",
+        "BILLING",
+        "HR_FACILITIES",
     ]
 
     # Category → Department mapping

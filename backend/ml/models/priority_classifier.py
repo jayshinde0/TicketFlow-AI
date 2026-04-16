@@ -12,23 +12,22 @@ from loguru import logger
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 
-
 ARTIFACT_DIR = Path(__file__).parent.parent / "artifacts"
 
 ALL_PRIORITIES = ["Low", "Medium", "High", "Critical"]
 
 # Default priority per category when model is unavailable
 CATEGORY_DEFAULT_PRIORITY = {
-    "Network":        "High",
-    "Auth":           "High",
-    "Software":       "Medium",
-    "Hardware":       "Medium",
-    "Access":         "Medium",
-    "Billing":        "High",
-    "Email":          "Medium",
-    "Security":       "Critical",   # always critical
+    "Network": "High",
+    "Auth": "High",
+    "Software": "Medium",
+    "Hardware": "Medium",
+    "Access": "Medium",
+    "Billing": "High",
+    "Email": "Medium",
+    "Security": "Critical",  # always critical
     "ServiceRequest": "Low",
-    "Database":       "Critical",
+    "Database": "Critical",
 }
 
 
@@ -50,7 +49,7 @@ class PriorityClassifier:
     def __init__(self):
         self.classifier = RandomForestClassifier(
             n_estimators=200,
-            class_weight="balanced",   # handle class imbalance
+            class_weight="balanced",  # handle class imbalance
             max_depth=10,
             min_samples_split=5,
             min_samples_leaf=2,
@@ -122,9 +121,7 @@ class PriorityClassifier:
         if not self._trained:
             # Fall back to category defaults
             default = CATEGORY_DEFAULT_PRIORITY.get(category, "Medium")
-            logger.warning(
-                f"PriorityClassifier not trained; using default: {default}"
-            )
+            logger.warning(f"PriorityClassifier not trained; using default: {default}")
             return default, 0.5
 
         probs = self.classifier.predict_proba(X)[0]
@@ -135,9 +132,7 @@ class PriorityClassifier:
         return str(predicted_class), confidence
 
     def get_feature_importance(
-        self,
-        feature_names: Optional[List[str]] = None,
-        top_n: int = 20
+        self, feature_names: Optional[List[str]] = None, top_n: int = 20
     ) -> List[Dict]:
         """
         Return top-N feature importances for the Random Forest model.
@@ -170,7 +165,7 @@ class PriorityClassifier:
         save_path.parent.mkdir(parents=True, exist_ok=True)
         joblib.dump(
             {"classifier": self.classifier, "label_encoder": self.label_encoder},
-            save_path
+            save_path,
         )
         logger.info(f"PriorityClassifier saved to {save_path}")
         return save_path

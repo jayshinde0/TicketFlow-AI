@@ -20,7 +20,9 @@ from models.user import UserRegister, UserLogin, UserProfile
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
-@router.post("/register", response_model=UserProfile, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register", response_model=UserProfile, status_code=status.HTTP_201_CREATED
+)
 async def register(body: UserRegister):
     """Register a new user, agent, or admin account."""
     users = get_users_collection()
@@ -91,6 +93,7 @@ async def login(body: UserLogin):
     )
 
     from core.config import settings
+
     logger.info(f"User logged in: {body.email}")
 
     return TokenResponse(
@@ -117,6 +120,7 @@ async def refresh_token(current_user: dict = Depends(get_current_user)):
         }
     )
     from core.config import settings
+
     return TokenResponse(
         access_token=access_token,
         token_type="bearer",

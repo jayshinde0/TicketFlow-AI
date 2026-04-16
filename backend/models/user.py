@@ -7,8 +7,8 @@ from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 
-
 # ─── Enums ────────────────────────────────────────────────────────────
+
 
 class UserRole(str, Enum):
     USER = "user"
@@ -26,16 +26,15 @@ class UserTier(str, Enum):
 
 # ─── Request schemas ──────────────────────────────────────────────────
 
+
 class UserRegister(BaseModel):
     """Body for POST /api/auth/register."""
+
     name: str = Field(min_length=2, max_length=100)
     email: EmailStr
-    password: str = Field(
-        min_length=8,
-        description="Minimum 8 characters"
-    )
+    password: str = Field(min_length=8, description="Minimum 8 characters")
     role: UserRole = UserRole.USER
-    tier: UserTier = UserTier.STANDARD     # for regular users
+    tier: UserTier = UserTier.STANDARD  # for regular users
     # Agent-specific: list of domains they can handle
     skills: Optional[List[str]] = []
 
@@ -54,42 +53,46 @@ class UserRegister(BaseModel):
 
 class UserLogin(BaseModel):
     """Body for POST /api/auth/login."""
+
     email: EmailStr
     password: str
 
 
 class UserPasswordChange(BaseModel):
     """Body for PATCH /api/users/me/password."""
+
     current_password: str
     new_password: str = Field(min_length=8)
 
 
 # ─── Database document ────────────────────────────────────────────────
 
+
 class UserDocument(BaseModel):
     """
     Full user document stored in MongoDB users collection.
     password_hash is NEVER returned in API responses.
     """
-    user_id: str                           # UUID
+
+    user_id: str  # UUID
     name: str
     email: str
-    password_hash: str                     # bcrypt hash — never expose in API
+    password_hash: str  # bcrypt hash — never expose in API
     role: UserRole = UserRole.USER
-    tier: UserTier = UserTier.STANDARD    # for ticket SLA + priority logic
+    tier: UserTier = UserTier.STANDARD  # for ticket SLA + priority logic
 
     # Agent performance stats (null for regular users)
-    skills: List[str] = []                 # domain names agent can handle
-    current_load: int = 0                  # active tickets assigned
-    max_load: int = 10                     # configurable limit
-    avg_resolution_time: Optional[float] = None   # hours
+    skills: List[str] = []  # domain names agent can handle
+    current_load: int = 0  # active tickets assigned
+    max_load: int = 10  # configurable limit
+    avg_resolution_time: Optional[float] = None  # hours
     tickets_resolved_total: int = 0
     approval_rate: Optional[float] = None  # % of AI suggestions approved
 
     # HITL Enhancement: department & expertise
-    department: List[str] = []             # departments agent belongs to
-    expertise_tags: List[str] = []         # fine-grained expertise tags
-    availability_status: str = "ONLINE"    # ONLINE / BUSY / OFFLINE
+    department: List[str] = []  # departments agent belongs to
+    expertise_tags: List[str] = []  # fine-grained expertise tags
+    availability_status: str = "ONLINE"  # ONLINE / BUSY / OFFLINE
 
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -102,8 +105,10 @@ class UserDocument(BaseModel):
 
 # ─── Response schemas ─────────────────────────────────────────────────
 
+
 class UserProfile(BaseModel):
     """Public profile returned by GET /api/auth/me. No password_hash."""
+
     user_id: str
     name: str
     email: str
@@ -124,6 +129,7 @@ class UserProfile(BaseModel):
 
 class AgentSummary(BaseModel):
     """Condensed agent info for admin dashboard."""
+
     user_id: str
     name: str
     email: str
@@ -141,6 +147,7 @@ class AgentSummary(BaseModel):
 
 class UserUpdate(BaseModel):
     """Body for PATCH /api/admin/agents/{id} — updatable fields only."""
+
     name: Optional[str] = None
     skills: Optional[List[str]] = None
     max_load: Optional[int] = Field(default=None, ge=1, le=100)

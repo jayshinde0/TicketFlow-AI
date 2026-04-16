@@ -80,16 +80,97 @@ class ClassifierService:
         """
         text_lower = text.lower()
         keyword_map = {
-            "Network":        ["vpn", "wifi", "internet", "ping", "dns", "firewall", "network", "connection"],
-            "Auth":           ["password", "login", "locked", "otp", "2fa", "token", "sso", "authentication"],
-            "Security":       ["phishing", "malware", "virus", "ransomware", "breach", "hack", "suspicious"],
-            "Database":       ["database", "sql", "query", "server", "disk", "backup", "mysql", "postgres"],
-            "Billing":        ["invoice", "payment", "charge", "refund", "subscription", "billing"],
-            "Software":       ["crash", "error", "install", "update", "freeze", "exception", "bug"],
-            "Hardware":       ["laptop", "screen", "keyboard", "printer", "battery", "usb", "monitor"],
-            "Email":          ["email", "inbox", "attachment", "spam", "mailbox", "smtp", "calendar"],
-            "Access":         ["access", "permission", "grant", "revoke", "role", "admin", "restricted"],
-            "ServiceRequest": ["request", "new", "setup", "provision", "create", "onboarding"],
+            "Network": [
+                "vpn",
+                "wifi",
+                "internet",
+                "ping",
+                "dns",
+                "firewall",
+                "network",
+                "connection",
+            ],
+            "Auth": [
+                "password",
+                "login",
+                "locked",
+                "otp",
+                "2fa",
+                "token",
+                "sso",
+                "authentication",
+            ],
+            "Security": [
+                "phishing",
+                "malware",
+                "virus",
+                "ransomware",
+                "breach",
+                "hack",
+                "suspicious",
+            ],
+            "Database": [
+                "database",
+                "sql",
+                "query",
+                "server",
+                "disk",
+                "backup",
+                "mysql",
+                "postgres",
+            ],
+            "Billing": [
+                "invoice",
+                "payment",
+                "charge",
+                "refund",
+                "subscription",
+                "billing",
+            ],
+            "Software": [
+                "crash",
+                "error",
+                "install",
+                "update",
+                "freeze",
+                "exception",
+                "bug",
+            ],
+            "Hardware": [
+                "laptop",
+                "screen",
+                "keyboard",
+                "printer",
+                "battery",
+                "usb",
+                "monitor",
+            ],
+            "Email": [
+                "email",
+                "inbox",
+                "attachment",
+                "spam",
+                "mailbox",
+                "smtp",
+                "calendar",
+            ],
+            "Access": [
+                "access",
+                "permission",
+                "grant",
+                "revoke",
+                "role",
+                "admin",
+                "restricted",
+            ],
+            "ServiceRequest": [
+                "request",
+                "new",
+                "setup",
+                "provision",
+                "create",
+                "onboarding",
+            ],
         }
         scores = {}
         for category, keywords in keyword_map.items():
@@ -129,17 +210,20 @@ class ClassifierService:
         # ── Build feature matrix ──────────────────────────────────────
         if self._feature_engineer and self._category_clf:
             import pandas as pd
-            meta = pd.DataFrame([{
-                "user_tier": user_tier,
-                "submission_hour": submission_hour,
-                "submission_day": 0,
-            }])
+
+            meta = pd.DataFrame(
+                [
+                    {
+                        "user_tier": user_tier,
+                        "submission_hour": submission_hour,
+                        "submission_day": 0,
+                    }
+                ]
+            )
             X = self._feature_engineer.transform([cleaned_text], meta)
 
             # ── Category prediction ──────────────────────────────────
-            category, model_confidence, category_probs = (
-                self._category_clf.predict(X)
-            )
+            category, model_confidence, category_probs = self._category_clf.predict(X)
 
             # ── Priority prediction ──────────────────────────────────
             if self._priority_clf:
@@ -175,8 +259,7 @@ class ClassifierService:
         """Async wrapper for classify() — runs in thread pool."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
-            None,
-            lambda: self.classify(cleaned_text, **kwargs)
+            None, lambda: self.classify(cleaned_text, **kwargs)
         )
 
     def predict_proba_for_lime(self, texts: list) -> np.ndarray:

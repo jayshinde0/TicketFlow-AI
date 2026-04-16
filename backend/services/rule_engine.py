@@ -10,24 +10,23 @@ import re
 from typing import Dict, Any, List, Tuple
 from loguru import logger
 
-
 # ─── Rule Definitions ─────────────────────────────────────────────────
 
 SQL_INJECTION_PATTERNS = [
-    re.compile(r"'\s*or\s+\d+=\d+", re.I),                    # ' OR 1=1
-    re.compile(r"'\s*or\s+'[^']*'\s*=\s*'[^']*'", re.I),      # ' OR 'a'='a
+    re.compile(r"'\s*or\s+\d+=\d+", re.I),  # ' OR 1=1
+    re.compile(r"'\s*or\s+'[^']*'\s*=\s*'[^']*'", re.I),  # ' OR 'a'='a
     re.compile(r"drop\s+table", re.I),
     re.compile(r"drop\s+database", re.I),
     re.compile(r";\s*delete\s+from", re.I),
     re.compile(r";\s*insert\s+into", re.I),
     re.compile(r"union\s+select", re.I),
     re.compile(r"select\s+\*\s+from", re.I),
-    re.compile(r"--\s*$", re.M),                               # SQL comment at end
-    re.compile(r"/\*.*?\*/", re.S),                            # SQL block comment
+    re.compile(r"--\s*$", re.M),  # SQL comment at end
+    re.compile(r"/\*.*?\*/", re.S),  # SQL block comment
     re.compile(r"exec\s*\(", re.I),
     re.compile(r"xp_cmdshell", re.I),
     re.compile(r"information_schema", re.I),
-    re.compile(r"sleep\s*\(\s*\d+\s*\)", re.I),               # time-based blind
+    re.compile(r"sleep\s*\(\s*\d+\s*\)", re.I),  # time-based blind
     re.compile(r"benchmark\s*\(", re.I),
     re.compile(r"load_file\s*\(", re.I),
     re.compile(r"into\s+outfile", re.I),
@@ -37,7 +36,7 @@ XSS_PATTERNS = [
     re.compile(r"<\s*script[^>]*>", re.I),
     re.compile(r"</\s*script\s*>", re.I),
     re.compile(r"javascript\s*:", re.I),
-    re.compile(r"on\w+\s*=\s*['\"]", re.I),                   # onerror=, onclick=
+    re.compile(r"on\w+\s*=\s*['\"]", re.I),  # onerror=, onclick=
     re.compile(r"alert\s*\(", re.I),
     re.compile(r"document\s*\.\s*cookie", re.I),
     re.compile(r"document\s*\.\s*write\s*\(", re.I),
@@ -45,9 +44,9 @@ XSS_PATTERNS = [
     re.compile(r"<\s*iframe[^>]*>", re.I),
     re.compile(r"<\s*img[^>]+onerror", re.I),
     re.compile(r"src\s*=\s*['\"]javascript:", re.I),
-    re.compile(r"&#x[0-9a-f]+;", re.I),                       # hex encoding
-    re.compile(r"%3c\s*script", re.I),                        # URL-encoded <script
-    re.compile(r"expression\s*\(", re.I),                     # CSS expression
+    re.compile(r"&#x[0-9a-f]+;", re.I),  # hex encoding
+    re.compile(r"%3c\s*script", re.I),  # URL-encoded <script
+    re.compile(r"expression\s*\(", re.I),  # CSS expression
     re.compile(r"vbscript\s*:", re.I),
 ]
 
@@ -60,7 +59,7 @@ BRUTE_FORCE_PATTERNS = [
     re.compile(r"password\s+spray", re.I),
     re.compile(r"credential\s+stuff", re.I),
     re.compile(r"\d+\s+failed\s+(login|attempt|auth)", re.I),  # "50 failed logins"
-    re.compile(r"login\s+attempt.{0,30}\d{2,}", re.I),         # login attempts + number
+    re.compile(r"login\s+attempt.{0,30}\d{2,}", re.I),  # login attempts + number
 ]
 
 UNAUTHORIZED_ACCESS_PATTERNS = [
@@ -75,7 +74,7 @@ UNAUTHORIZED_ACCESS_PATTERNS = [
     re.compile(r"disable\s+(firewall|antivirus|security|2fa|mfa)", re.I),
     re.compile(r"back\s*door", re.I),
     re.compile(r"exploit\s+(vuln|cve|zero.?day)", re.I),
-    re.compile(r"cve-\d{4}-\d+", re.I),                       # CVE reference
+    re.compile(r"cve-\d{4}-\d+", re.I),  # CVE reference
 ]
 
 DDOS_PATTERNS = [
@@ -93,13 +92,28 @@ DDOS_PATTERNS = [
 
 # Keywords that bump Normal → Suspicious (hidden threat detection)
 SUSPICIOUS_KEYWORDS = [
-    "unusual activity", "strange behavior", "weird request",
-    "slow after login", "system slow after", "performance drop after",
-    "someone else", "not me", "wasn't me", "i didn't do",
-    "account accessed", "unknown device", "unfamiliar location",
-    "foreign ip", "different country", "vpn bypass",
-    "need admin", "need root", "need superuser",
-    "urgent access", "emergency access", "bypass verification",
+    "unusual activity",
+    "strange behavior",
+    "weird request",
+    "slow after login",
+    "system slow after",
+    "performance drop after",
+    "someone else",
+    "not me",
+    "wasn't me",
+    "i didn't do",
+    "account accessed",
+    "unknown device",
+    "unfamiliar location",
+    "foreign ip",
+    "different country",
+    "vpn bypass",
+    "need admin",
+    "need root",
+    "need superuser",
+    "urgent access",
+    "emergency access",
+    "bypass verification",
 ]
 
 
@@ -147,7 +161,9 @@ class RuleEngine:
         threat_level = ml_threat_level
 
         # ── SQL Injection ─────────────────────────────────────────────
-        sql_hit, sql_evidence = self._check_patterns(text, SQL_INJECTION_PATTERNS, "sql_injection")
+        sql_hit, sql_evidence = self._check_patterns(
+            text, SQL_INJECTION_PATTERNS, "sql_injection"
+        )
         if sql_hit:
             triggered_rules.append("sql_injection")
             matched_evidence.extend(sql_evidence)
@@ -164,7 +180,9 @@ class RuleEngine:
             threat_level = "attack"
 
         # ── Brute Force ───────────────────────────────────────────────
-        bf_hit, bf_evidence = self._check_patterns(text, BRUTE_FORCE_PATTERNS, "brute_force")
+        bf_hit, bf_evidence = self._check_patterns(
+            text, BRUTE_FORCE_PATTERNS, "brute_force"
+        )
         if bf_hit:
             triggered_rules.append("brute_force")
             matched_evidence.extend(bf_evidence)
@@ -175,7 +193,9 @@ class RuleEngine:
                 threat_level = "suspicious"
 
         # ── Unauthorized Access ───────────────────────────────────────
-        ua_hit, ua_evidence = self._check_patterns(text, UNAUTHORIZED_ACCESS_PATTERNS, "unauthorized_access")
+        ua_hit, ua_evidence = self._check_patterns(
+            text, UNAUTHORIZED_ACCESS_PATTERNS, "unauthorized_access"
+        )
         if ua_hit:
             triggered_rules.append("unauthorized_access")
             matched_evidence.extend(ua_evidence)
@@ -210,7 +230,9 @@ class RuleEngine:
         # ── Build result ──────────────────────────────────────────────
         override_ml = len(triggered_rules) > 0 and threat_level != ml_threat_level
 
-        detection_reason = self._build_reason(triggered_rules, matched_evidence, threat_level)
+        detection_reason = self._build_reason(
+            triggered_rules, matched_evidence, threat_level
+        )
 
         # Confidence boost based on number of triggered rules
         confidence_boost = min(0.4, len(triggered_rules) * 0.15)
@@ -257,7 +279,7 @@ class RuleEngine:
 
         if evidence:
             sample = evidence[0][:60]
-            reason += f" Evidence: \"{sample}\""
+            reason += f' Evidence: "{sample}"'
 
         return reason
 

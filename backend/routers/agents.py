@@ -19,12 +19,16 @@ async def get_agent_queue(
     """Get tickets pending agent review (routing=SUGGEST or ESCALATE)."""
     collection = get_tickets_collection()
 
-    cursor = collection.find({
-        "status": "open",
-        "ai_analysis.routing_decision": {
-            "$in": ["SUGGEST_TO_AGENT", "ESCALATE_TO_HUMAN"]
-        },
-    }).sort("created_at", 1)  # oldest first
+    cursor = collection.find(
+        {
+            "status": "open",
+            "ai_analysis.routing_decision": {
+                "$in": ["SUGGEST_TO_AGENT", "ESCALATE_TO_HUMAN"]
+            },
+        }
+    ).sort(
+        "created_at", 1
+    )  # oldest first
 
     docs = await cursor.to_list(length=100)
     for doc in docs:
@@ -44,33 +48,41 @@ async def get_agent_workload(
     users = get_users_collection()
     tickets = get_tickets_collection()
 
-    agents_cursor = users.find({
-        "role": {"$in": ["agent", "senior_engineer"]},
-        "is_active": True,
-    })
+    agents_cursor = users.find(
+        {
+            "role": {"$in": ["agent", "senior_engineer"]},
+            "is_active": True,
+        }
+    )
     agents = await agents_cursor.to_list(length=100)
 
     result = []
     for agent in agents:
         uid = agent["user_id"]
-        open_count = await tickets.count_documents({
-            "resolution.agent_id": uid,
-            "status": "open",
-        })
-        resolved_count = await tickets.count_documents({
-            "resolution.agent_id": uid,
-            "status": "resolved",
-        })
-        result.append({
-            "user_id": uid,
-            "name": agent["name"],
-            "skills": agent.get("skills", []),
-            "open_tickets": open_count,
-            "resolved_total": resolved_count,
-            "max_load": agent.get("max_load", 10),
-            "avg_resolution_time": agent.get("avg_resolution_time"),
-            "approval_rate": agent.get("approval_rate"),
-        })
+        open_count = await tickets.count_documents(
+            {
+                "resolution.agent_id": uid,
+                "status": "open",
+            }
+        )
+        resolved_count = await tickets.count_documents(
+            {
+                "resolution.agent_id": uid,
+                "status": "resolved",
+            }
+        )
+        result.append(
+            {
+                "user_id": uid,
+                "name": agent["name"],
+                "skills": agent.get("skills", []),
+                "open_tickets": open_count,
+                "resolved_total": resolved_count,
+                "max_load": agent.get("max_load", 10),
+                "avg_resolution_time": agent.get("avg_resolution_time"),
+                "approval_rate": agent.get("approval_rate"),
+            }
+        )
 
     return {"agents": result, "total": len(result)}
 
@@ -83,6 +95,7 @@ async def assign_ticket(
 ):
     """Assign a ticket to a specific agent."""
     from utils.helpers import utcnow
+
     collection = get_tickets_collection()
     result = await collection.update_one(
         {"ticket_id": ticket_id},
@@ -128,7 +141,11 @@ async def auto_assign_ticket(
     )
 
     if not agent:
-        return {"ticket_id": ticket_id, "assigned": False, "reason": "No agents available"}
+        return {
+            "ticket_id": ticket_id,
+            "assigned": False,
+            "reason": "No agents available",
+        }
 
     await assignment_service.assign_ticket(ticket_id, agent["user_id"])
     return {
@@ -148,6 +165,7 @@ async def update_availability(
     """Update the current agent's availability status."""
     from core.database import get_db
     from utils.helpers import utcnow
+
     db = get_db()
     await db["users"].update_one(
         {"user_id": current_user["user_id"]},

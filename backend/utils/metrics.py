@@ -17,9 +17,7 @@ from sklearn.metrics import (
 
 
 def full_classification_report(
-    y_true: List,
-    y_pred: List,
-    class_names: List[str]
+    y_true: List, y_pred: List, class_names: List[str]
 ) -> Dict:
     """
     Generate a structured classification report dict.
@@ -34,9 +32,7 @@ def full_classification_report(
 
 
 def compute_confusion_matrix(
-    y_true: List,
-    y_pred: List,
-    class_names: List[str]
+    y_true: List, y_pred: List, class_names: List[str]
 ) -> Dict:
     """
     Compute and return confusion matrix as a nested dict suitable for JSON.
@@ -64,9 +60,7 @@ def compute_confusion_matrix(
 
 
 def compute_expected_calibration_error(
-    confidences: np.ndarray,
-    correct: np.ndarray,
-    n_bins: int = 10
+    confidences: np.ndarray, correct: np.ndarray, n_bins: int = 10
 ) -> Tuple[float, Dict]:
     """
     Compute Expected Calibration Error (ECE) for probability calibration plot.
@@ -97,21 +91,20 @@ def compute_expected_calibration_error(
         # ECE contribution from this bin
         ece += (bin_count / total) * abs(bin_accuracy - bin_confidence)
 
-        bin_data.append({
-            "bin_lower": round(bins[i], 2),
-            "bin_upper": round(bins[i + 1], 2),
-            "average_confidence": round(float(bin_confidence), 4),
-            "actual_accuracy": round(float(bin_accuracy), 4),
-            "count": int(bin_count),
-        })
+        bin_data.append(
+            {
+                "bin_lower": round(bins[i], 2),
+                "bin_upper": round(bins[i + 1], 2),
+                "average_confidence": round(float(bin_confidence), 4),
+                "actual_accuracy": round(float(bin_accuracy), 4),
+                "count": int(bin_count),
+            }
+        )
 
     return round(ece, 4), {"bins": bin_data, "ece": round(ece, 4)}
 
 
-def compute_sla_auc(
-    y_true: np.ndarray,
-    y_scores: np.ndarray
-) -> Dict:
+def compute_sla_auc(y_true: np.ndarray, y_scores: np.ndarray) -> Dict:
     """
     Compute AUC-ROC and Average Precision for the binary SLA breach predictor.
 
@@ -143,9 +136,7 @@ def compute_sla_auc(
 
 
 def metrics_at_threshold(
-    y_true: np.ndarray,
-    y_scores: np.ndarray,
-    threshold: float = 0.70
+    y_true: np.ndarray, y_scores: np.ndarray, threshold: float = 0.70
 ) -> Dict:
     """
     Compute precision, recall, F1 at a specific threshold for SLA model.

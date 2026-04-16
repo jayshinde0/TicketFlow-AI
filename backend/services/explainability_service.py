@@ -19,8 +19,16 @@ class ExplainabilityService:
     """
 
     ALL_CATEGORIES = [
-        "Network", "Auth", "Software", "Hardware", "Access",
-        "Billing", "Email", "Security", "ServiceRequest", "Database"
+        "Network",
+        "Auth",
+        "Software",
+        "Hardware",
+        "Access",
+        "Billing",
+        "Email",
+        "Security",
+        "ServiceRequest",
+        "Database",
     ]
 
     def __init__(self):
@@ -32,9 +40,8 @@ class ExplainabilityService:
         if not self._loaded:
             try:
                 from lime.lime_text import LimeTextExplainer
-                self._explainer = LimeTextExplainer(
-                    class_names=self.ALL_CATEGORIES
-                )
+
+                self._explainer = LimeTextExplainer(class_names=self.ALL_CATEGORIES)
                 logger.info("LIME explainer initialized.")
             except ImportError:
                 logger.warning("LIME not installed. pip install lime")
@@ -43,7 +50,7 @@ class ExplainabilityService:
     def explain(
         self,
         cleaned_text: str,
-        classifier_service,   # injected to avoid circular import
+        classifier_service,  # injected to avoid circular import
         num_features: int = 8,
         num_samples: int = 300,  # reduced from 500 for speed
     ) -> Optional[dict]:
@@ -107,15 +114,17 @@ class ExplainabilityService:
             negative_features.sort(key=lambda x: abs(x["weight"]), reverse=True)
 
             # Explanation confidence = score of predicted class
-            score_map = dict(explanation.local_pred if hasattr(explanation, "local_pred") else [])
+            score_map = dict(
+                explanation.local_pred if hasattr(explanation, "local_pred") else []
+            )
 
             return {
                 "predicted_class": predicted_class,
                 "explanation_confidence": round(
                     float(
-                        classifier_service.predict_proba_for_lime(
-                            [cleaned_text]
-                        )[0][predicted_class_idx]
+                        classifier_service.predict_proba_for_lime([cleaned_text])[0][
+                            predicted_class_idx
+                        ]
                     ),
                     4,
                 ),
@@ -140,7 +149,7 @@ class ExplainabilityService:
             None,
             lambda: self.explain(
                 cleaned_text, classifier_service, num_features, num_samples
-            )
+            ),
         )
 
 

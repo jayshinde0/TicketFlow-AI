@@ -50,6 +50,7 @@ async def lifespan(app: FastAPI):
 
         # Root cause detection — every 5 minutes
         from services.root_cause_service import root_cause_service
+
         scheduler.add_job(
             root_cause_service.run_detection,
             trigger=IntervalTrigger(minutes=5),
@@ -67,6 +68,7 @@ async def lifespan(app: FastAPI):
 
         # Escalation chain timer check — every 5 minutes
         from services.escalation_service import escalation_service
+
         scheduler.add_job(
             escalation_service.check_escalations,
             trigger=IntervalTrigger(minutes=5),
@@ -76,13 +78,15 @@ async def lifespan(app: FastAPI):
 
         scheduler.start()
         app.state.scheduler = scheduler
-        logger.info("APScheduler started: root_cause(5min), sla_check(2min), escalation(5min)")
+        logger.info(
+            "APScheduler started: root_cause(5min), sla_check(2min), escalation(5min)"
+        )
     except ImportError:
         logger.warning("apscheduler not installed. Background jobs disabled.")
 
     logger.info("TicketFlow AI is ready!")
 
-    yield   # --- Application running ---
+    yield  # --- Application running ---
 
     logger.info("Shutting down TicketFlow AI...")
     if hasattr(app.state, "scheduler"):
@@ -104,8 +108,12 @@ async def check_sla_warnings():
         collection = get_tickets_collection()
         cursor = collection.find(
             {"status": "open"},
-            {"ticket_id": 1, "ai_analysis.category": 1, "ai_analysis.priority": 1,
-             "created_at": 1}
+            {
+                "ticket_id": 1,
+                "ai_analysis.category": 1,
+                "ai_analysis.priority": 1,
+                "created_at": 1,
+            },
         )
         tickets = await cursor.to_list(length=500)
 
@@ -181,6 +189,44 @@ app.include_router(images_router)
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "service": "TicketFlow AI"}
+
+
+@app.get("/health/llm")
+async def llm_health_check():
+    """Check LLM provider status and configuration."""
+    from services.llm_provider_factory import llm_provider
+    from services.ollama_provider import ollama_provider as ollama
+    
+    config = {
+        "provider": settings.LLM_PROVIDER,
+        "model": settings.OLLAMA_MODEL if settings.LLM_PROVIDER == "ollama" else settings.QWEN_MODEL,
+        "url": settings.OLLAMA_URL if settings.LLM_PROVIDER == "ollama" else settings.QWEN_API_BASE,
+    }
+    
+    # Test availability
+    is_available = False
+    error_message = None
+    
+    try:
+        if settings.LLM_PROVIDER.lower() == "ollama":
+            is_available = await ollama.is_available()
+            if is_available:
+                # Test generation
+                test_response = await ollama.generate("Say 'OK'", temperature=0.1, max_tokens=10)
+                is_available = bool(test_response)
+                if not test_response:
+                    error_message = "Ollama is reachable but generation failed"
+        else:
+            # For Qwen, just return config
+            is_available = True
+    except Exception as e:
+        error_message = str(e)
+    
+    return {
+        "status": "available" if is_available else "unavailable",
+        "config": config,
+        "error": error_message,
+    }
 
 
 @app.get("/")

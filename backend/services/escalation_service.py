@@ -127,7 +127,9 @@ class EscalationService:
             "acknowledged_at": None,
             "resolved": False,
             "resolved_at": None,
-            "playbook": self.PLAYBOOKS.get(threat_type, {}).get("title", "General Security Response"),
+            "playbook": self.PLAYBOOKS.get(threat_type, {}).get(
+                "title", "General Security Response"
+            ),
             "playbook_steps_completed": [],
             "incident_report": None,
         }
@@ -135,24 +137,30 @@ class EscalationService:
         # Store in database
         try:
             from core.database import get_db
+
             db = get_db()
             if db is not None:
                 await db["escalation_logs"].insert_one(escalation)
-                logger.info(f"Escalation created for ticket {ticket_id}: L1, severity={severity}")
+                logger.info(
+                    f"Escalation created for ticket {ticket_id}: L1, severity={severity}"
+                )
         except Exception as e:
             logger.warning(f"Failed to store escalation (non-fatal): {e}")
 
         # Send WebSocket notification
         try:
             from services.notification_service import notification_service
-            await notification_service.notify_root_cause_alert({
-                "type": "security_escalation",
-                "ticket_id": ticket_id,
-                "threat_type": threat_type,
-                "severity": severity,
-                "level": "L1",
-                "message": f"Security threat detected: {threat_type} (severity: {severity})",
-            })
+
+            await notification_service.notify_root_cause_alert(
+                {
+                    "type": "security_escalation",
+                    "ticket_id": ticket_id,
+                    "threat_type": threat_type,
+                    "severity": severity,
+                    "level": "L1",
+                    "message": f"Security threat detected: {threat_type} (severity: {severity})",
+                }
+            )
         except Exception as e:
             logger.warning(f"Escalation notification failed (non-fatal): {e}")
 
@@ -165,6 +173,7 @@ class EscalationService:
         """
         try:
             from core.database import get_db
+
             db = get_db()
             if db is None:
                 return
@@ -173,12 +182,14 @@ class EscalationService:
             now_iso = now.isoformat()
 
             # Find un-acknowledged L1 escalations past L2 timeout
-            cursor = db["escalation_logs"].find({
-                "acknowledged": False,
-                "resolved": False,
-                "current_level": "L1",
-                "l2_escalation_at": {"$lte": now_iso},
-            })
+            cursor = db["escalation_logs"].find(
+                {
+                    "acknowledged": False,
+                    "resolved": False,
+                    "current_level": "L1",
+                    "l2_escalation_at": {"$lte": now_iso},
+                }
+            )
             async for esc in cursor:
                 await db["escalation_logs"].update_one(
                     {"_id": esc["_id"]},
@@ -190,12 +201,14 @@ class EscalationService:
                 )
 
             # Find un-acknowledged L2 escalations past L3 timeout
-            cursor = db["escalation_logs"].find({
-                "acknowledged": False,
-                "resolved": False,
-                "current_level": "L2",
-                "l3_escalation_at": {"$lte": now_iso},
-            })
+            cursor = db["escalation_logs"].find(
+                {
+                    "acknowledged": False,
+                    "resolved": False,
+                    "current_level": "L2",
+                    "l3_escalation_at": {"$lte": now_iso},
+                }
+            )
             async for esc in cursor:
                 await db["escalation_logs"].update_one(
                     {"_id": esc["_id"]},
@@ -209,12 +222,11 @@ class EscalationService:
         except Exception as e:
             logger.error(f"Escalation check failed: {e}")
 
-    async def acknowledge_escalation(
-        self, ticket_id: str, agent_id: str
-    ) -> bool:
+    async def acknowledge_escalation(self, ticket_id: str, agent_id: str) -> bool:
         """Mark an escalation as acknowledged by an agent."""
         try:
             from core.database import get_db
+
             db = get_db()
             if db is None:
                 return False
@@ -242,6 +254,7 @@ class EscalationService:
         """Submit a post-incident report for a security escalation."""
         try:
             from core.database import get_db
+
             db = get_db()
             if db is None:
                 return False
@@ -251,13 +264,20 @@ class EscalationService:
             # Store report in both escalation log and dedicated collection
             await db["escalation_logs"].update_one(
                 {"ticket_id": ticket_id},
-                {"$set": {"incident_report": report, "resolved": True,
-                          "resolved_at": datetime.now(timezone.utc).isoformat()}},
+                {
+                    "$set": {
+                        "incident_report": report,
+                        "resolved": True,
+                        "resolved_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                },
             )
-            await db["incident_reports"].insert_one({
-                "ticket_id": ticket_id,
-                **report,
-            })
+            await db["incident_reports"].insert_one(
+                {
+                    "ticket_id": ticket_id,
+                    **report,
+                }
+            )
             return True
         except Exception as e:
             logger.error(f"Incident report submission failed: {e}")
@@ -265,17 +285,20 @@ class EscalationService:
 
     def get_playbook(self, threat_type: str) -> Dict[str, Any]:
         """Get the response playbook for a given threat type."""
-        return self.PLAYBOOKS.get(threat_type, {
-            "title": "General Security Response Playbook",
-            "steps": [
-                "Assess the scope of the security incident",
-                "Contain the threat to prevent further damage",
-                "Preserve all evidence and logs",
-                "Notify the security team lead",
-                "Document all actions taken",
-                "Implement corrective measures",
-            ],
-        })
+        return self.PLAYBOOKS.get(
+            threat_type,
+            {
+                "title": "General Security Response Playbook",
+                "steps": [
+                    "Assess the scope of the security incident",
+                    "Contain the threat to prevent further damage",
+                    "Preserve all evidence and logs",
+                    "Notify the security team lead",
+                    "Document all actions taken",
+                    "Implement corrective measures",
+                ],
+            },
+        )
 
 
 # Module-level singleton

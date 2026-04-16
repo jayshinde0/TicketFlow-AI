@@ -25,10 +25,22 @@ class TimeSensitivityService:
     LOW_URGENCY_CATEGORIES = {"ServiceRequest", "Email"}
 
     URGENCY_KEYWORDS = {
-        "urgent", "asap", "immediately", "critical", "emergency",
-        "production down", "system down", "outage", "data loss",
-        "ransomware", "breach", "hacked", "all users", "whole team",
-        "cannot work", "completely down",
+        "urgent",
+        "asap",
+        "immediately",
+        "critical",
+        "emergency",
+        "production down",
+        "system down",
+        "outage",
+        "data loss",
+        "ransomware",
+        "breach",
+        "hacked",
+        "all users",
+        "whole team",
+        "cannot work",
+        "completely down",
     }
 
     def classify(
@@ -59,7 +71,9 @@ class TimeSensitivityService:
 
         # Rule 3: High urgency keyword density → IMMEDIATE
         if urgency_count >= 3:
-            logger.debug(f"Time sensitivity: IMMEDIATE ({urgency_count} urgency keywords)")
+            logger.debug(
+                f"Time sensitivity: IMMEDIATE ({urgency_count} urgency keywords)"
+            )
             return "IMMEDIATE"
 
         # Rule 4: High + technical → SAME_DAY

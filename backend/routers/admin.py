@@ -5,7 +5,10 @@ routers/admin.py — Admin-only endpoints: model versions, retraining, knowledge
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from loguru import logger
 
-from core.database import get_model_versions_collection, get_knowledge_articles_collection
+from core.database import (
+    get_model_versions_collection,
+    get_knowledge_articles_collection,
+)
 from core.security import require_role
 from services.retraining_service import retraining_service
 from services.notification_service import notification_service
@@ -108,6 +111,7 @@ async def get_system_health(
     # MongoDB
     try:
         from core.database import get_tickets_collection
+
         col = get_tickets_collection()
         await col.find_one({}, {"_id": 1})
         health["mongodb"] = "ok"
@@ -126,9 +130,12 @@ async def get_system_health(
     try:
         import httpx
         from core.config import settings
+
         async with httpx.AsyncClient(timeout=3.0) as client:
             resp = await client.get(f"{settings.OLLAMA_URL}/api/tags")
-            health["ollama"] = "ok" if resp.status_code == 200 else f"http_{resp.status_code}"
+            health["ollama"] = (
+                "ok" if resp.status_code == 200 else f"http_{resp.status_code}"
+            )
     except Exception as e:
         health["ollama"] = f"unavailable: {str(e)[:50]}"
 

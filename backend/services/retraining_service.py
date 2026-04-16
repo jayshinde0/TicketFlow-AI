@@ -33,10 +33,7 @@ class RetrainingService:
     def _get_current_model_version(self) -> str:
         """Get model version identifier from artifacts file."""
         version_file = (
-            Path(__file__).parent.parent
-            / "ml"
-            / "artifacts"
-            / "current_version.txt"
+            Path(__file__).parent.parent / "ml" / "artifacts" / "current_version.txt"
         )
         if version_file.exists():
             return version_file.read_text().strip()
@@ -45,10 +42,7 @@ class RetrainingService:
     def _save_model_version(self, version: str) -> None:
         """Persist current model version string to disk."""
         version_file = (
-            Path(__file__).parent.parent
-            / "ml"
-            / "artifacts"
-            / "current_version.txt"
+            Path(__file__).parent.parent / "ml" / "artifacts" / "current_version.txt"
         )
         version_file.parent.mkdir(parents=True, exist_ok=True)
         version_file.write_text(version)
@@ -67,10 +61,9 @@ class RetrainingService:
         """Count feedback records not yet used for retraining."""
         try:
             from core.database import get_feedback_collection
+
             collection = get_feedback_collection()
-            count = await collection.count_documents(
-                {"used_for_retraining": False}
-            )
+            count = await collection.count_documents({"used_for_retraining": False})
             return count
         except Exception as e:
             logger.warning(f"count_pending_feedback failed: {e}")
@@ -94,6 +87,7 @@ class RetrainingService:
         """Load all unused feedback records for model fine-tuning."""
         try:
             from core.database import get_feedback_collection
+
             collection = get_feedback_collection()
             cursor = collection.find({"used_for_retraining": False})
             docs = await cursor.to_list(length=None)
@@ -112,14 +106,13 @@ class RetrainingService:
         """
         try:
             from core.database import get_feedback_collection
+
             collection = get_feedback_collection()
             result = await collection.update_many(
                 {"used_for_retraining": False},
                 {"$set": {"used_for_retraining": True}},
             )
-            logger.info(
-                f"Marked {result.modified_count} feedback records as used."
-            )
+            logger.info(f"Marked {result.modified_count} feedback records as used.")
             return result.modified_count
         except Exception as e:
             logger.error(f"mark_feedback_used failed: {e}")
@@ -135,6 +128,7 @@ class RetrainingService:
             current_version = self._get_current_model_version()
 
             from core.database import get_model_versions_collection
+
             version_coll = get_model_versions_collection()
             active_model = await version_coll.find_one({"is_active": True})
 
@@ -142,16 +136,12 @@ class RetrainingService:
                 "current_version": current_version,
                 "pending_feedback": pending,
                 "threshold": threshold,
-                "progress_pct": round(
-                    min(pending / max(threshold, 1), 1.0) * 100, 1
-                ),
+                "progress_pct": round(min(pending / max(threshold, 1), 1.0) * 100, 1),
                 "ready_to_retrain": pending >= threshold,
                 "last_trained_at": (
                     active_model.get("trained_at") if active_model else None
                 ),
-                "last_f1": (
-                    active_model.get("category_f1") if active_model else None
-                ),
+                "last_f1": (active_model.get("category_f1") if active_model else None),
             }
         except Exception as e:
             logger.warning(f"get_retraining_status failed: {e}")
@@ -197,9 +187,7 @@ class RetrainingService:
 
         # Load feedback
         feedback_docs = await self.get_feedback_for_retraining()
-        logger.info(
-            f"Retraining with {len(feedback_docs)} feedback corrections."
-        )
+        logger.info(f"Retraining with {len(feedback_docs)} feedback corrections.")
 
         # Run training
         try:
@@ -219,13 +207,10 @@ class RetrainingService:
 
         try:
             from core.database import get_model_versions_collection
+
             version_collection = get_model_versions_collection()
-            current_doc = await version_collection.find_one(
-                {"is_active": True}
-            )
-            old_f1 = (
-                current_doc.get("category_f1", 0.0) if current_doc else 0.0
-            )
+            current_doc = await version_collection.find_one({"is_active": True})
+            old_f1 = current_doc.get("category_f1", 0.0) if current_doc else 0.0
         except Exception as e:
             logger.warning(f"Failed to load current model metrics: {e}")
             old_f1 = 0.0
@@ -239,6 +224,7 @@ class RetrainingService:
 
             try:
                 from core.database import get_model_versions_collection
+
                 version_collection = get_model_versions_collection()
                 await version_collection.update_many(
                     {"is_active": True},
@@ -265,9 +251,7 @@ class RetrainingService:
             "trained_at": datetime.now(timezone.utc),
             "training_size": metrics.get("training_samples", 0),
             "category_f1": round(new_f1, 4),
-            "priority_f1": round(
-                metrics.get("priority_f1_macro", 0.0), 4
-            ),
+            "priority_f1": round(metrics.get("priority_f1_macro", 0.0), 4),
             "sla_auc": round(metrics.get("sla_auc_roc", 0.0), 4),
             "feedback_examples_added": len(feedback_docs),
             "is_active": promoted,
@@ -277,6 +261,7 @@ class RetrainingService:
 
         try:
             from core.database import get_model_versions_collection
+
             version_collection = get_model_versions_collection()
             await version_collection.insert_one(version_doc)
         except Exception as e:
@@ -287,9 +272,7 @@ class RetrainingService:
             await self.mark_feedback_used()
 
         end_time = datetime.now(timezone.utc)
-        duration_seconds = int(
-            (end_time - start_time).total_seconds()
-        )
+        duration_seconds = int((end_time - start_time).total_seconds())
 
         result = {
             "success": True,

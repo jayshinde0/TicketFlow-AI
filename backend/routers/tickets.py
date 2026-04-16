@@ -13,12 +13,22 @@ from loguru import logger
 from core.database import get_tickets_collection
 from core.security import get_current_user, get_current_user_optional
 from models.ticket import (
-    TicketCreate, TicketListResponse, TicketListItem,
-    TicketResponse, TicketSubmitResponse, TicketStatusUpdate,
-    TicketStatus, TicketMetadata, AIAnalysis, ResolutionData,
+    TicketCreate,
+    TicketListResponse,
+    TicketListItem,
+    TicketResponse,
+    TicketSubmitResponse,
+    TicketStatusUpdate,
+    TicketStatus,
+    TicketMetadata,
+    AIAnalysis,
+    ResolutionData,
 )
 from services.nlp_service import nlp_service
 from services.classifier_service import classifier_service
+from services.hybrid_classifier_service import (
+    enhanced_hybrid_classifier,
+)  # NEW: Hybrid classifier
 from services.embedding_service import embedding_service
 from services.retrieval_service import retrieval_service
 from services.sentiment_service import sentiment_service
@@ -57,7 +67,7 @@ async def run_ai_pipeline(
     Agents run in sequence:
     1. NLP preprocessing
     2. Sentiment analysis
-    3. Classifier (category + priority)
+    3. Classifier (category + priority) - HYBRID (ML + Keywords)
     4. Embeddings + Retrieval (similar tickets)
     5. SLA prediction
     6. HITL routing decision (confidence + overrides)
@@ -72,6 +82,7 @@ async def run_ai_pipeline(
     start_time = time.time()
     stage_timings = {}  # per-stage timing breakdown
     zero_shot_used = False
+    hybrid_override_used = False  # NEW: Track hybrid classifier usage
     # Security pipeline result defaults (populated later in pipeline)
     threat_level = "normal"
     threat_type_new = "none"
@@ -100,15 +111,20 @@ async def run_ai_pipeline(
         )
     except (asyncio.TimeoutError, Exception) as e:
         logger.warning(f"Sentiment service timeout/error: {e}. Using neutral fallback.")
-        sentiment_result = {"sentiment_label": "NEUTRAL", "sentiment_score": 0.5, "is_frustrated": False}
+        sentiment_result = {
+            "sentiment_label": "NEUTRAL",
+            "sentiment_score": 0.5,
+            "is_frustrated": False,
+        }
     sentiment_label = sentiment_result["sentiment_label"]
     sentiment_score = sentiment_result["sentiment_score"]
     is_frustrated = sentiment_result["is_frustrated"]
     stage_timings["sentiment_ms"] = int((time.time() - t0) * 1000)
 
-    # ─── Agent 1: Classify category + priority ────────────────────────
+    # ─── Agent 1: Classify category + priority (HYBRID CLASSIFIER) ────
     t0 = time.time()
-    classify_result = classifier_service.classify(
+    # NEW: Use hybrid classifier (ML + keyword fallback)
+    classify_result = await enhanced_hybrid_classifier.classify(
         cleaned_text=cleaned_text,
         user_tier=user_tier,
         submission_hour=now.hour,
@@ -116,14 +132,18 @@ async def run_ai_pipeline(
         urgency_keyword_count=urgency_count,
         sentiment_score=sentiment_score,
     )
+
     category = classify_result["category"]
     model_confidence = classify_result["model_confidence"]
     category_probs = classify_result["category_probabilities"]
     priority = classify_result["priority"]
     priority_confidence = classify_result["priority_confidence"]
-
-    # ─── Zero-shot fallback for low confidence (<0.60) ────────────
-    if model_confidence < settings.CONFIDENCE_LOW_THRESHOLD:
+    hybrid_override_used = classify_result.get("hybrid_override", False)  # NEW
+    
+    stage_timings["classification_ms"] = int((time.time() - t0) * 1000)
+    
+    # ─── Zero-shot fallback for low confidence (<0.55) ────────────────
+    if model_confidence < 0.55:
         logger.info(
             f"Low ML confidence ({model_confidence:.2f}) — attempting Ollama zero-shot fallback"
         )
@@ -132,7 +152,8 @@ async def run_ai_pipeline(
                 ollama_provider.classify_zero_shot(combined_text, ALL_CATEGORIES),
                 timeout=15.0,
             )
-            if zs_result and zs_result.get("confidence", 0) > model_confidence:
+            # Only override if zero-shot is SIGNIFICANTLY better
+            if zs_result and zs_result.get("confidence", 0) > model_confidence + 0.15:
                 category = zs_result["category"]
                 model_confidence = zs_result["confidence"]
                 zero_shot_used = True
@@ -141,20 +162,26 @@ async def run_ai_pipeline(
                 )
         except Exception as e:
             logger.warning(f"Zero-shot fallback failed (non-fatal): {e}")
-    stage_timings["classification_ms"] = int((time.time() - t0) * 1000)
 
     # ─── Agent 2: Retrieve similar tickets ────────────────────────────
     t0 = time.time()
     try:
         retrieval_result = await asyncio.wait_for(
             retrieval_service.find_similar_tickets(
-                text=cleaned_text, category=category, top_k=3,
+                text=cleaned_text,
+                category=category,
+                top_k=3,
             ),
-            timeout=15.0,   # first run downloads embedding model
+            timeout=15.0,  # first run downloads embedding model
         )
     except (asyncio.TimeoutError, Exception) as e:
         logger.warning(f"Retrieval service timeout/error: {e}. Using empty fallback.")
-        retrieval_result = {"similar_tickets": [], "top_similarity_score": 0.0, "embedding": None, "knowledge_base_size": 0}
+        retrieval_result = {
+            "similar_tickets": [],
+            "top_similarity_score": 0.0,
+            "embedding": None,
+            "knowledge_base_size": 0,
+        }
     similar_tickets = retrieval_result["similar_tickets"]
     top_similarity = retrieval_result["top_similarity_score"]
     ticket_embedding = retrieval_result.get("embedding")
@@ -163,8 +190,10 @@ async def run_ai_pipeline(
     # ─── SLA prediction ───────────────────────────────────────────────
     t0 = time.time()
     similar_avg_resolution = (
-        sum(t.get("resolution_time_hours", 2.0) for t in similar_tickets) / len(similar_tickets)
-        if similar_tickets else 2.0
+        sum(t.get("resolution_time_hours", 2.0) for t in similar_tickets)
+        / len(similar_tickets)
+        if similar_tickets
+        else 2.0
     )
     sla_breach_prob = sla_service.predict_breach_probability(
         category=category,
@@ -241,7 +270,12 @@ async def run_ai_pipeline(
 
     # ─── Safety guardrails check ─────────────────────────────────
     t0 = time.time()
-    safety_result = {"is_safe": True, "violations": [], "response_hash": "", "sanitized_response": ""}
+    safety_result = {
+        "is_safe": True,
+        "violations": [],
+        "response_hash": "",
+        "sanitized_response": "",
+    }
     generated_response = llm_result.get("generated_response", "")
     if generated_response and routing_decision == "AUTO_RESOLVE":
         safety_result = safety_guardrails_service.validate_response(generated_response)
@@ -254,7 +288,9 @@ async def run_ai_pipeline(
         elif not safety_result["is_safe"]:
             # Use sanitized response instead
             llm_result["generated_response"] = safety_result["sanitized_response"]
-            logger.info(f"Response sanitized for {ticket_id}: minor violations redacted")
+            logger.info(
+                f"Response sanitized for {ticket_id}: minor violations redacted"
+            )
     stage_timings["safety_check_ms"] = int((time.time() - t0) * 1000)
 
     # ─── Security threat analysis (enhanced pipeline) ──────────────
@@ -294,7 +330,10 @@ async def run_ai_pipeline(
         final_priority = "Critical"
 
     # Legacy escalation for critical/high threats
-    if threat_result.get("threat_detected") and threat_result.get("severity") in ("critical", "high"):
+    if threat_result.get("threat_detected") and threat_result.get("severity") in (
+        "critical",
+        "high",
+    ):
         if routing_decision == "AUTO_RESOLVE":
             routing_decision = "ESCALATE_TO_HUMAN"
         await escalation_service.create_escalation(
@@ -325,7 +364,7 @@ async def run_ai_pipeline(
             cleaned_text=cleaned_text,
             classifier_service=classifier_service,
             num_features=8,
-            num_samples=200,   # reduced samples for speed
+            num_samples=200,  # reduced samples for speed
         )
     except Exception as e:
         logger.debug(f"LIME explanation skipped: {e}")
@@ -343,7 +382,9 @@ async def run_ai_pipeline(
     # ─── SLA estimation ───────────────────────────────────────────────
     t0 = time.time()
     sla_info = sla_service.get_sla_info(category, final_priority, now)
-    estimated_hours = sla_service._get_predictor() and sla_service.predict_breach_probability  # use model if available
+    estimated_hours = (
+        sla_service._get_predictor() and sla_service.predict_breach_probability
+    )  # use model if available
     stage_timings["sla_estimation_ms"] = int((time.time() - t0) * 1000)
 
     # ─── Build AI analysis doc ─────────────────────────────────────────
@@ -352,7 +393,10 @@ async def run_ai_pipeline(
 
     # Load current model version
     from pathlib import Path
-    version_file = Path(__file__).parent.parent / "ml" / "artifacts" / "current_version.txt"
+
+    version_file = (
+        Path(__file__).parent.parent / "ml" / "artifacts" / "current_version.txt"
+    )
     model_version = version_file.read_text().strip() if version_file.exists() else "v1"
 
     ai_analysis = {
@@ -394,6 +438,7 @@ async def run_ai_pipeline(
         },
         "stage_timings": stage_timings,
         "zero_shot_used": zero_shot_used,
+        "hybrid_override_used": hybrid_override_used,  # NEW: Track hybrid usage
         # ── Security pipeline fields ────────────────────────────────
         "threat_level": threat_level,
         "threat_type": threat_type_new,
@@ -426,7 +471,9 @@ async def run_ai_pipeline(
         hallucination_detected=llm_result.get("hallucination_detected", False),
         fallback_used=llm_result.get("fallback_used", False),
         generation_time_ms=llm_result.get("generation_time_ms"),
-        lime_top_features=lime_result.get("top_positive_features") if lime_result else None,
+        lime_top_features=(
+            lime_result.get("top_positive_features") if lime_result else None
+        ),
         duplicate_check_performed=True,
         is_duplicate=duplicate_result.get("is_duplicate", False),
         duplicate_of=duplicate_result.get("parent_ticket_id"),
@@ -437,13 +484,16 @@ async def run_ai_pipeline(
         f"AI pipeline complete for {ticket_id}: "
         f"category={category}, routing={routing_decision}, "
         f"confidence={confidence_score:.3f}, "
+        f"hybrid_override={hybrid_override_used}, "
         f"time={processing_time_ms}ms"
     )
 
     return ai_analysis
 
 
-@router.post("/", response_model=TicketSubmitResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=TicketSubmitResponse, status_code=status.HTTP_201_CREATED
+)
 async def submit_ticket(
     body: TicketCreate,
     current_user: Optional[dict] = Depends(get_current_user_optional),
@@ -498,14 +548,16 @@ async def submit_ticket(
     await collection.insert_one(ticket_doc)
 
     # Notify connected agent dashboards
-    await notification_service.notify_new_ticket({
-        "ticket_id": ticket_id,
-        "subject": body.subject,
-        "category": ai_analysis.get("category"),
-        "priority": ai_analysis.get("priority"),
-        "routing_decision": ai_analysis.get("routing_decision"),
-        "confidence_score": ai_analysis.get("confidence_score"),
-    })
+    await notification_service.notify_new_ticket(
+        {
+            "ticket_id": ticket_id,
+            "subject": body.subject,
+            "category": ai_analysis.get("category"),
+            "priority": ai_analysis.get("priority"),
+            "routing_decision": ai_analysis.get("routing_decision"),
+            "confidence_score": ai_analysis.get("confidence_score"),
+        }
+    )
 
     return TicketSubmitResponse(
         ticket_id=ticket_id,
@@ -562,19 +614,21 @@ async def list_tickets(
     tickets = []
     for doc in docs:
         ai = doc.get("ai_analysis") or {}
-        tickets.append(TicketListItem(
-            ticket_id=doc["ticket_id"],
-            subject=doc["subject"],
-            status=doc["status"],
-            created_at=doc["created_at"],
-            category=ai.get("category"),
-            priority=ai.get("priority"),
-            confidence_score=ai.get("confidence_score"),
-            routing_decision=ai.get("routing_decision"),
-            sentiment_label=ai.get("sentiment_label"),
-            sla_breach_probability=ai.get("sla_breach_probability"),
-            is_frustrated=ai.get("is_frustrated"),
-        ))
+        tickets.append(
+            TicketListItem(
+                ticket_id=doc["ticket_id"],
+                subject=doc["subject"],
+                status=doc["status"],
+                created_at=doc["created_at"],
+                category=ai.get("category"),
+                priority=ai.get("priority"),
+                confidence_score=ai.get("confidence_score"),
+                routing_decision=ai.get("routing_decision"),
+                sentiment_label=ai.get("sentiment_label"),
+                sla_breach_probability=ai.get("sla_breach_probability"),
+                is_frustrated=ai.get("is_frustrated"),
+            )
+        )
 
     return TicketListResponse(
         tickets=tickets,

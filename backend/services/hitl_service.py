@@ -19,7 +19,7 @@ class HITLService:
 
     Takes outputs from Agents 1, 2, and Sentiment service, applies
     confidence_service.compute(), then makes final HITL annotation.
-    
+
     Returns the complete routing packet ready for ticket document storage.
     """
 

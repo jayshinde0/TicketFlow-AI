@@ -27,9 +27,9 @@ class CacheService:
 
     def __init__(self):
         if TTLCache is not None:
-            self._tfidf_cache = TTLCache(maxsize=500, ttl=3600)       # 1 hour
+            self._tfidf_cache = TTLCache(maxsize=500, ttl=3600)  # 1 hour
             self._similarity_cache = TTLCache(maxsize=200, ttl=1800)  # 30 min
-            self._llm_cache = TTLCache(maxsize=100, ttl=3600)         # 1 hour
+            self._llm_cache = TTLCache(maxsize=100, ttl=3600)  # 1 hour
             self._enabled = True
         else:
             self._tfidf_cache = {}
@@ -103,9 +103,13 @@ class CacheService:
         }
 
     def clear(self) -> None:
-        self._tfidf_cache.clear() if hasattr(self._tfidf_cache, 'clear') else None
-        self._similarity_cache.clear() if hasattr(self._similarity_cache, 'clear') else None
-        self._llm_cache.clear() if hasattr(self._llm_cache, 'clear') else None
+        self._tfidf_cache.clear() if hasattr(self._tfidf_cache, "clear") else None
+        (
+            self._similarity_cache.clear()
+            if hasattr(self._similarity_cache, "clear")
+            else None
+        )
+        self._llm_cache.clear() if hasattr(self._llm_cache, "clear") else None
         self._hits = 0
         self._misses = 0
 

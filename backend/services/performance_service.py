@@ -24,6 +24,7 @@ class PerformanceService:
         """
         try:
             from core.database import get_db
+
             db = get_db()
             if db is None:
                 return
@@ -37,27 +38,29 @@ class PerformanceService:
         except Exception as e:
             logger.debug(f"Performance log failed (non-fatal): {e}")
 
-    async def get_latency_metrics(
-        self, hours: int = 24
-    ) -> Dict[str, Any]:
+    async def get_latency_metrics(self, hours: int = 24) -> Dict[str, Any]:
         """
         Calculate p50, p95, p99 latency for total pipeline time
         over the last N hours.
         """
         try:
             from core.database import get_db
+
             db = get_db()
             if db is None:
                 return self._empty_metrics()
 
-            cutoff = (
-                datetime.now(timezone.utc) - timedelta(hours=hours)
-            ).isoformat()
+            cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
-            cursor = db["performance_logs"].find(
-                {"timestamp": {"$gte": cutoff}},
-                {"total_ms": 1, "_id": 0},
-            ).sort("timestamp", -1).limit(1000)
+            cursor = (
+                db["performance_logs"]
+                .find(
+                    {"timestamp": {"$gte": cutoff}},
+                    {"total_ms": 1, "_id": 0},
+                )
+                .sort("timestamp", -1)
+                .limit(1000)
+            )
 
             totals = []
             async for doc in cursor:
@@ -86,45 +89,50 @@ class PerformanceService:
             logger.error(f"Latency metrics failed: {e}")
             return self._empty_metrics()
 
-    async def get_stage_breakdown(
-        self, hours: int = 24
-    ) -> Dict[str, Any]:
+    async def get_stage_breakdown(self, hours: int = 24) -> Dict[str, Any]:
         """
         Get average time per pipeline stage over the last N hours.
         """
         try:
             from core.database import get_db
+
             db = get_db()
             if db is None:
                 return {}
 
-            cutoff = (
-                datetime.now(timezone.utc) - timedelta(hours=hours)
-            ).isoformat()
+            cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
             pipeline = [
                 {"$match": {"timestamp": {"$gte": cutoff}}},
-                {"$group": {
-                    "_id": None,
-                    "avg_preprocessing_ms": {"$avg": "$preprocessing_ms"},
-                    "avg_classification_ms": {"$avg": "$classification_ms"},
-                    "avg_retrieval_ms": {"$avg": "$retrieval_ms"},
-                    "avg_sentiment_ms": {"$avg": "$sentiment_ms"},
-                    "avg_sla_prediction_ms": {"$avg": "$sla_prediction_ms"},
-                    "avg_routing_ms": {"$avg": {"$ifNull": ["$hitl_routing_ms", 0]}},
-                    "avg_llm_generation_ms": {"$avg": "$llm_generation_ms"},
-                    "avg_safety_check_ms": {"$avg": "$safety_check_ms"},
-                    "avg_threat_analysis_ms": {"$avg": {"$ifNull": ["$threat_analysis_ms", 0]}},
-                    "avg_total_ms": {"$avg": "$total_ms"},
-                    "count": {"$sum": 1},
-                }},
+                {
+                    "$group": {
+                        "_id": None,
+                        "avg_preprocessing_ms": {"$avg": "$preprocessing_ms"},
+                        "avg_classification_ms": {"$avg": "$classification_ms"},
+                        "avg_retrieval_ms": {"$avg": "$retrieval_ms"},
+                        "avg_sentiment_ms": {"$avg": "$sentiment_ms"},
+                        "avg_sla_prediction_ms": {"$avg": "$sla_prediction_ms"},
+                        "avg_routing_ms": {
+                            "$avg": {"$ifNull": ["$hitl_routing_ms", 0]}
+                        },
+                        "avg_llm_generation_ms": {"$avg": "$llm_generation_ms"},
+                        "avg_safety_check_ms": {"$avg": "$safety_check_ms"},
+                        "avg_threat_analysis_ms": {
+                            "$avg": {"$ifNull": ["$threat_analysis_ms", 0]}
+                        },
+                        "avg_total_ms": {"$avg": "$total_ms"},
+                        "count": {"$sum": 1},
+                    }
+                },
             ]
 
             result = {}
             async for doc in db["performance_logs"].aggregate(pipeline):
                 doc.pop("_id", None)
                 # Round all values
-                result = {k: round(v) if isinstance(v, float) else v for k, v in doc.items()}
+                result = {
+                    k: round(v) if isinstance(v, float) else v for k, v in doc.items()
+                }
 
             return result
 

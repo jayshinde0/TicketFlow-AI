@@ -17,43 +17,16 @@ from core.config import settings
 from services.embedding_service import embedding_service
 from services.llm_provider_factory import llm_provider
 
-
 # ─── Prompt templates ─────────────────────────────────────────────────
-# RAG_PROMPT_TEMPLATE = """\
-# You are a professional IT support specialist.
-
-# User ticket: {ticket_text}
-# Category: {category}
-
-# Similar resolved ticket solution: {retrieved_solution}
-
-# Write a professional support response in 3-4 sentences.
-# Be specific and actionable. Use numbered steps if needed.
-# Do not add disclaimers or say 'I hope this helps'.
-# Do not start with 'I' or greetings.
-# """
 RAG_PROMPT_TEMPLATE = """\
-You are a professional IT support specialist with deep technical knowledge.
+You are an IT support specialist.
 
-User ticket: {ticket_text}
+Ticket: {ticket_text}
 Category: {category}
+Previous solution: {retrieved_solution}
 
-Similar resolved ticket solution: {retrieved_solution}
-
-Generate a response that:
-1. Is SPECIFIC to the {category} category - avoid generic troubleshooting
-2. Includes specific steps that user can execute immediately (log locations, commands, etc.)
-3. Explains the ROOT CAUSE if possible
-4. Has diagnostic steps BEFORE suggesting reinstall/escalation
-5. For Network issues: include firewall, port, or connectivity diagnostics
-6. For Software issues: include error codes, log files, version checks
-7. For Security issues: include security implications
-8. For Auth issues: include account status checks, MFA tests
-9. Only suggest escalation if user cannot proceed with steps provided
-10. Use numbered steps with clear outcomes (what success looks like)
-
-Format: 4-6 detailed steps with expected outcomes.
-Do not use generic disclaimers. Be direct and technical.
+Provide a clear, actionable response in 3-4 sentences with numbered steps.
+Be specific and technical. No disclaimers or greetings.
 """
 
 KNOWLEDGE_ARTICLE_PROMPT = """\
@@ -138,13 +111,13 @@ class LLMService:
         start_time = time.time()
 
         prompt = RAG_PROMPT_TEMPLATE.format(
-            ticket_text=ticket_text[:800],
+            ticket_text=ticket_text[:500],  # Reduced from 800
             category=category,
-            retrieved_solution=retrieved_solution[:600],
+            retrieved_solution=retrieved_solution[:400],  # Reduced from 600
         )
 
         generated_text = await self._provider.generate(
-            prompt, temperature=0.3, max_tokens=250
+            prompt, temperature=0.3, max_tokens=150  # Reduced from 250
         )
         generation_time_ms = int((time.time() - start_time) * 1000)
 
@@ -156,7 +129,9 @@ class LLMService:
             generated_text = retrieved_solution
             fallback_used = True
         else:
-            similarity = await self._check_hallucination(generated_text, retrieved_solution)
+            similarity = await self._check_hallucination(
+                generated_text, retrieved_solution
+            )
             if similarity < settings.HALLUCINATION_SIM_THRESHOLD:
                 hallucination_detected = True
                 fallback_used = True
@@ -175,7 +150,9 @@ class LLMService:
             "model_used": self.model if not fallback_used else "fallback",
         }
 
-    async def _check_hallucination(self, generated_text: str, reference_text: str) -> float:
+    async def _check_hallucination(
+        self, generated_text: str, reference_text: str
+    ) -> float:
         """Cosine similarity guard against hallucinated responses."""
         try:
             return await embedding_service.cosine_similarity_async(
@@ -199,7 +176,9 @@ class LLMService:
             solution=solution[:500],
             resolution_hours=round(resolution_hours, 1),
         )
-        return await self._provider.generate_json(prompt, temperature=0.2, max_tokens=400)
+        return await self._provider.generate_json(
+            prompt, temperature=0.2, max_tokens=400
+        )
 
     async def generate_root_cause_hypothesis(
         self,
@@ -216,7 +195,9 @@ class LLMService:
             window=window_minutes,
         )
 
-        response = await self._provider.generate(prompt, temperature=0.1, max_tokens=100)
+        response = await self._provider.generate(
+            prompt, temperature=0.1, max_tokens=100
+        )
 
         if response:
             return response.split(".")[0].strip() + "."

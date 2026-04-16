@@ -29,10 +29,12 @@ from services.classifier_service import classifier_service
 from services.sentiment_service import sentiment_service
 from services.rule_engine import rule_engine
 
-
 # ─── ChromaDB attack similarity check ────────────────────────────────
 
-async def _check_attack_similarity(text: str, threshold: float = 0.75) -> Dict[str, Any]:
+
+async def _check_attack_similarity(
+    text: str, threshold: float = 0.75
+) -> Dict[str, Any]:
     """
     Compare new ticket embedding against stored past attack embeddings in ChromaDB.
     Returns similarity score and whether it exceeds the threshold.
@@ -53,7 +55,11 @@ async def _check_attack_similarity(text: str, threshold: float = 0.75) -> Dict[s
 
         count = collection.count()
         if count == 0:
-            return {"similar_attack_found": False, "similarity_score": 0.0, "similar_count": 0}
+            return {
+                "similar_attack_found": False,
+                "similarity_score": 0.0,
+                "similar_count": 0,
+            }
 
         embedding = await embedding_service.embed_async(text)
         results = collection.query(
@@ -74,7 +80,11 @@ async def _check_attack_similarity(text: str, threshold: float = 0.75) -> Dict[s
         }
     except Exception as e:
         logger.debug(f"ChromaDB attack similarity check skipped: {e}")
-        return {"similar_attack_found": False, "similarity_score": 0.0, "similar_count": 0}
+        return {
+            "similar_attack_found": False,
+            "similarity_score": 0.0,
+            "similar_count": 0,
+        }
 
 
 async def store_attack_embedding(ticket_id: str, text: str, threat_type: str) -> None:
@@ -104,10 +114,12 @@ async def store_attack_embedding(ticket_id: str, text: str, threat_type: str) ->
 
 # ─── Redis caching for attack patterns ───────────────────────────────
 
+
 async def _get_cached_result(cache_key: str) -> Optional[Dict]:
     """Try to get a cached security analysis result from Redis/in-memory cache."""
     try:
         from services.cache_service import cache_service
+
         # Use the LLM cache slot for generic security pipeline results
         return cache_service.get_llm_response(cache_key)
     except Exception:
@@ -119,6 +131,7 @@ async def _cache_result(cache_key: str, result: Dict, ttl: int = 300) -> None:
     try:
         import json
         from services.cache_service import cache_service
+
         # Serialize to string for the string-typed LLM cache
         cache_service.set_llm_response(cache_key, json.dumps(result, default=str))
     except Exception:
@@ -126,6 +139,7 @@ async def _cache_result(cache_key: str, result: Dict, ttl: int = 300) -> None:
 
 
 # ─── Main Pipeline ────────────────────────────────────────────────────
+
 
 class SecurityAIPipeline:
     """
@@ -181,11 +195,16 @@ class SecurityAIPipeline:
         # ── Cache check ───────────────────────────────────────────────
         import hashlib
         import json as _json
+
         cache_key = f"sec_pipeline:{hashlib.md5(combined_text.encode()).hexdigest()}"
         cached_raw = await _get_cached_result(cache_key)
         if cached_raw:
             try:
-                cached = _json.loads(cached_raw) if isinstance(cached_raw, str) else cached_raw
+                cached = (
+                    _json.loads(cached_raw)
+                    if isinstance(cached_raw, str)
+                    else cached_raw
+                )
                 logger.debug(f"Security pipeline cache hit for {ticket_id}")
                 return cached
             except Exception:
@@ -226,7 +245,11 @@ class SecurityAIPipeline:
                 sentiment_service.analyze_async(combined_text), timeout=8.0
             )
         except Exception:
-            sentiment_result = {"sentiment_label": "NEUTRAL", "sentiment_score": 0.5, "is_frustrated": False}
+            sentiment_result = {
+                "sentiment_label": "NEUTRAL",
+                "sentiment_score": 0.5,
+                "is_frustrated": False,
+            }
 
         # Anomaly: very negative + security-adjacent text → suspicious
         anomaly_detected = (
@@ -270,9 +293,13 @@ class SecurityAIPipeline:
         # ── Compute final confidence score ────────────────────────────
         base_confidence = ml_confidence
         if rule_result["triggered_rules"]:
-            base_confidence = min(1.0, base_confidence + rule_result["confidence_boost"])
+            base_confidence = min(
+                1.0, base_confidence + rule_result["confidence_boost"]
+            )
         if chroma_result["similar_attack_found"]:
-            base_confidence = min(1.0, base_confidence + chroma_result["similarity_score"] * 0.2)
+            base_confidence = min(
+                1.0, base_confidence + chroma_result["similarity_score"] * 0.2
+            )
         confidence_score = round(base_confidence, 4)
 
         # ── Auto escalation logic ─────────────────────────────────────
@@ -299,19 +326,16 @@ class SecurityAIPipeline:
             "detection_reason": rule_result["detection_reason"],
             "triggered_rules": rule_result["triggered_rules"],
             "matched_evidence": rule_result.get("matched_evidence", []),
-
             # Escalation
             "auto_escalate": auto_escalate,
             "disable_auto_resolve": disable_auto_resolve,
             "safe_response": safe_response,
-
             # Supporting data
             "anomaly_detected": anomaly_detected,
             "sentiment_label": sentiment_result["sentiment_label"],
             "chroma_similarity": chroma_result,
             "ml_category": ml_category,
             "ml_confidence": ml_confidence,
-
             # Timing
             "stage_timings": stage_timings,
         }
@@ -322,7 +346,9 @@ class SecurityAIPipeline:
         # Store attack embedding for future comparisons
         if threat_level == "attack":
             asyncio.create_task(
-                store_attack_embedding(ticket_id, combined_text, rule_result["threat_type"])
+                store_attack_embedding(
+                    ticket_id, combined_text, rule_result["threat_type"]
+                )
             )
 
         logger.info(

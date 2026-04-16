@@ -22,39 +22,106 @@ class SecurityThreatService:
 
     # ── Stage 1: Security keywords ────────────────────────────────────
     THREAT_KEYWORDS = {
-        "phishing": ["phishing", "suspicious email", "fake login", "credential harvest",
-                      "impersonation", "spoofed", "verify your account"],
-        "malware": ["malware", "ransomware", "virus", "trojan", "crypto miner",
-                     "encrypted files", "suspicious executable", "worm"],
-        "data_breach": ["data breach", "leaked", "exposed", "compromised data",
-                         "records accessed", "unauthorized download"],
-        "unauthorized_access": ["unauthorized", "foreign ip", "unknown login",
-                                 "privilege escalation", "root access", "admin takeover"],
-        "social_engineering": ["pretexting", "baiting", "social engineering",
-                                "impersonating", "pretending to be"],
-        "insider_threat": ["exfiltration", "copied to usb", "personal email",
-                           "policy violation", "sabotage", "unauthorized sharing"],
+        "phishing": [
+            "phishing",
+            "suspicious email",
+            "fake login",
+            "credential harvest",
+            "impersonation",
+            "spoofed",
+            "verify your account",
+        ],
+        "malware": [
+            "malware",
+            "ransomware",
+            "virus",
+            "trojan",
+            "crypto miner",
+            "encrypted files",
+            "suspicious executable",
+            "worm",
+        ],
+        "data_breach": [
+            "data breach",
+            "leaked",
+            "exposed",
+            "compromised data",
+            "records accessed",
+            "unauthorized download",
+        ],
+        "unauthorized_access": [
+            "unauthorized",
+            "foreign ip",
+            "unknown login",
+            "privilege escalation",
+            "root access",
+            "admin takeover",
+        ],
+        "social_engineering": [
+            "pretexting",
+            "baiting",
+            "social engineering",
+            "impersonating",
+            "pretending to be",
+        ],
+        "insider_threat": [
+            "exfiltration",
+            "copied to usb",
+            "personal email",
+            "policy violation",
+            "sabotage",
+            "unauthorized sharing",
+        ],
     }
 
     SEVERITY_KEYWORDS = {
-        "critical": ["ransomware", "data breach", "production compromised",
-                      "all records", "encrypted files", "ransom", "ddos"],
-        "high": ["malware", "unauthorized access", "phishing", "hacked",
-                  "stolen credentials", "trojan", "compromised"],
-        "medium": ["suspicious", "potential threat", "security concern",
-                    "unusual activity"],
+        "critical": [
+            "ransomware",
+            "data breach",
+            "production compromised",
+            "all records",
+            "encrypted files",
+            "ransom",
+            "ddos",
+        ],
+        "high": [
+            "malware",
+            "unauthorized access",
+            "phishing",
+            "hacked",
+            "stolen credentials",
+            "trojan",
+            "compromised",
+        ],
+        "medium": [
+            "suspicious",
+            "potential threat",
+            "security concern",
+            "unusual activity",
+        ],
     }
 
     # ── Stage 2: Disguised attack patterns ────────────────────────────
     DISGUISED_PATTERNS = [
         # URLs in seemingly innocent requests
-        re.compile(r"(?:click|visit|go to|open)\s+(?:this\s+)?(?:link|url|site)[:\s]+\S+", re.I),
+        re.compile(
+            r"(?:click|visit|go to|open)\s+(?:this\s+)?(?:link|url|site)[:\s]+\S+", re.I
+        ),
         # Credential harvesting disguised as help requests
-        re.compile(r"(?:send|share|provide|give)\s+(?:me\s+)?(?:your\s+)?(?:password|credentials|login|api.?key)", re.I),
+        re.compile(
+            r"(?:send|share|provide|give)\s+(?:me\s+)?(?:your\s+)?(?:password|credentials|login|api.?key)",
+            re.I,
+        ),
         # Social engineering indicators
-        re.compile(r"(?:i'?m|this is)\s+(?:the\s+)?(?:ceo|cto|director|manager|admin)\s+(?:and\s+)?(?:i\s+)?need", re.I),
+        re.compile(
+            r"(?:i'?m|this is)\s+(?:the\s+)?(?:ceo|cto|director|manager|admin)\s+(?:and\s+)?(?:i\s+)?need",
+            re.I,
+        ),
         # Urgency pressure tactics
-        re.compile(r"(?:must|need to)\s+(?:immediately|right now|asap)\s+(?:transfer|send|wire|pay)", re.I),
+        re.compile(
+            r"(?:must|need to)\s+(?:immediately|right now|asap)\s+(?:transfer|send|wire|pay)",
+            re.I,
+        ),
         # Base64 encoded content
         re.compile(r"[A-Za-z0-9+/]{40,}={0,2}", re.I),
         # Suspicious file extensions
@@ -209,7 +276,8 @@ class SecurityThreatService:
             "recommended_action": recommended_action,
             "indicators": list(set(indicators))[:10],  # dedupe and cap
             "escalation_level": escalation_level,
-            "escalation_timer_started": threat_detected and severity in ("critical", "high"),
+            "escalation_timer_started": threat_detected
+            and severity in ("critical", "high"),
             "pre_filter_flags": pre_filter_result["threat_types"],
             "disguised_attack_detected": disguised_result["disguised_threat_detected"],
         }

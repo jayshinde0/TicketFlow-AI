@@ -88,8 +88,7 @@ class SLAService:
         """Async wrapper for predict_breach_probability."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
-            None,
-            lambda: self.predict_breach_probability(**kwargs)
+            None, lambda: self.predict_breach_probability(**kwargs)
         )
 
     def get_sla_deadline(

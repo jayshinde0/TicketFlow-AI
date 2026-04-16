@@ -45,10 +45,7 @@ class DuplicateService:
         )
 
         # Filter out the new ticket itself
-        similar_open = [
-            t for t in similar_open
-            if t.get("ticket_id") != new_ticket_id
-        ]
+        similar_open = [t for t in similar_open if t.get("ticket_id") != new_ticket_id]
 
         if not similar_open:
             return {

@@ -24,11 +24,11 @@ router = APIRouter(prefix="/api/tickets", tags=["images"])
 
 # ── Magic bytes for image format validation ───────────────────────────
 MAGIC_BYTES = {
-    b"\xff\xd8\xff": "image/jpeg",           # JPEG
-    b"\x89PNG\r\n\x1a\n": "image/png",       # PNG
-    b"GIF87a": "image/gif",                   # GIF87a
-    b"GIF89a": "image/gif",                   # GIF89a
-    b"RIFF": "image/webp",                    # WebP (partial — also check WEBP at offset 8)
+    b"\xff\xd8\xff": "image/jpeg",  # JPEG
+    b"\x89PNG\r\n\x1a\n": "image/png",  # PNG
+    b"GIF87a": "image/gif",  # GIF87a
+    b"GIF89a": "image/gif",  # GIF89a
+    b"RIFF": "image/webp",  # WebP (partial — also check WEBP at offset 8)
 }
 
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/gif", "image/webp"}
@@ -38,7 +38,7 @@ ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 def _detect_mime(header_bytes: bytes) -> str | None:
     """Detect MIME type from magic bytes."""
     for magic, mime in MAGIC_BYTES.items():
-        if header_bytes[:len(magic)] == magic:
+        if header_bytes[: len(magic)] == magic:
             # Extra check for WebP: RIFF....WEBP
             if magic == b"RIFF" and header_bytes[8:12] != b"WEBP":
                 continue
@@ -73,8 +73,14 @@ async def upload_images(
 
     # Permission check: ticket owner or agent/admin
     user_role = current_user.get("role", "")
-    if ticket.get("user_id") != current_user.get("user_id") and user_role not in ("agent", "admin", "senior_engineer"):
-        raise HTTPException(status_code=403, detail="Not authorized to upload images to this ticket")
+    if ticket.get("user_id") != current_user.get("user_id") and user_role not in (
+        "agent",
+        "admin",
+        "senior_engineer",
+    ):
+        raise HTTPException(
+            status_code=403, detail="Not authorized to upload images to this ticket"
+        )
 
     # Check how many images already exist
     existing_images = ticket.get("images", [])
@@ -136,14 +142,18 @@ async def upload_images(
         url = f"/api/tickets/{ticket_id}/images/{stored_name}"
         now = datetime.now(timezone.utc).isoformat()
 
-        uploaded.append({
-            "filename": stored_name,
-            "original_name": original,
-            "url": url,
-            "uploaded_at": now,
-        })
+        uploaded.append(
+            {
+                "filename": stored_name,
+                "original_name": original,
+                "url": url,
+                "uploaded_at": now,
+            }
+        )
 
-        logger.info(f"Image uploaded: {original} -> {stored_name} for ticket {ticket_id}")
+        logger.info(
+            f"Image uploaded: {original} -> {stored_name} for ticket {ticket_id}"
+        )
 
     # ── Persist to MongoDB ────────────────────────────────────────────
     await tickets.update_one(
@@ -170,7 +180,11 @@ async def serve_image(
         raise HTTPException(status_code=404, detail="Ticket not found")
 
     user_role = current_user.get("role", "")
-    if ticket.get("user_id") != current_user.get("user_id") and user_role not in ("agent", "admin", "senior_engineer"):
+    if ticket.get("user_id") != current_user.get("user_id") and user_role not in (
+        "agent",
+        "admin",
+        "senior_engineer",
+    ):
         raise HTTPException(status_code=403, detail="Not authorized to view this image")
 
     # Sanitize filename to prevent path traversal

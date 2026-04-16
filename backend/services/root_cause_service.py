@@ -20,7 +20,7 @@ from services.notification_service import notification_service
 class RootCauseService:
     """
     Spike detection and root cause analysis engine.
-    
+
     Runs every 5 minutes (triggered by APScheduler in main.py).
     Detects ticket volume spikes per domain and generates incident alerts.
     """
@@ -34,10 +34,12 @@ class RootCauseService:
         cutoff = datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
         try:
             collection = get_tickets_collection()
-            cursor = collection.find({
-                "ai_analysis.category": category,
-                "created_at": {"$gte": cutoff},
-            })
+            cursor = collection.find(
+                {
+                    "ai_analysis.category": category,
+                    "created_at": {"$gte": cutoff},
+                }
+            )
             return await cursor.to_list(length=None)
         except Exception as e:
             logger.error(f"RootCause query error: {e}")
@@ -107,10 +109,12 @@ class RootCauseService:
                 continue  # No spike
 
             # Check if we already have an open alert for this category
-            existing = await alerts_collection.find_one({
-                "category": category,
-                "status": "open",
-            })
+            existing = await alerts_collection.find_one(
+                {
+                    "category": category,
+                    "status": "open",
+                }
+            )
             if existing:
                 continue  # Already alerted
 
@@ -143,8 +147,7 @@ class RootCauseService:
                 "root_cause_hypothesis": hypothesis,
                 "severity": severity,
                 "affected_ticket_ids": [
-                    t.get("ticket_id") for t in tickets
-                    if t.get("ticket_id")
+                    t.get("ticket_id") for t in tickets if t.get("ticket_id")
                 ],
                 "status": "open",
                 "resolved_at": None,
@@ -155,10 +158,12 @@ class RootCauseService:
             await alerts_collection.insert_one(dict(alert))
 
             # Broadcast to all dashboards
-            await notification_service.notify_root_cause_alert({
-                **alert,
-                "timestamp": alert["timestamp"].isoformat(),
-            })
+            await notification_service.notify_root_cause_alert(
+                {
+                    **alert,
+                    "timestamp": alert["timestamp"].isoformat(),
+                }
+            )
 
             new_alerts.append(alert)
             logger.info(

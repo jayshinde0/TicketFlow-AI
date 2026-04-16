@@ -116,14 +116,16 @@ class RetrievalService:
                 ids=[ticket_id],
                 embeddings=[embedding.tolist()],
                 documents=[text],
-                metadatas=[{
-                    "ticket_id": ticket_id,
-                    "solution": solution[:2000],   # cap at 2000 chars
-                    "category": category,
-                    "priority": priority,
-                    "resolution_time_hours": str(resolution_time_hours),
-                    "status": status,
-                }]
+                metadatas=[
+                    {
+                        "ticket_id": ticket_id,
+                        "solution": solution[:2000],  # cap at 2000 chars
+                        "category": category,
+                        "priority": priority,
+                        "resolution_time_hours": str(resolution_time_hours),
+                        "status": status,
+                    }
+                ],
             )
             return True
         except Exception as e:
@@ -176,29 +178,33 @@ class RetrievalService:
             if not results["ids"] or not results["ids"][0]:
                 return []
 
-            for i, (ticket_id, distance, document, metadata) in enumerate(zip(
-                results["ids"][0],
-                results["distances"][0],
-                results["documents"][0],
-                results["metadatas"][0],
-            )):
+            for i, (ticket_id, distance, document, metadata) in enumerate(
+                zip(
+                    results["ids"][0],
+                    results["distances"][0],
+                    results["documents"][0],
+                    results["metadatas"][0],
+                )
+            ):
                 # ChromaDB cosine distance: 0=identical, 2=opposite
                 # Convert to similarity: 1 - distance/2
                 similarity = max(0.0, 1.0 - (distance / 2.0))
 
                 if similarity < 0.3:
-                    continue   # skip low-quality matches
+                    continue  # skip low-quality matches
 
-                similar.append({
-                    "ticket_id": ticket_id,
-                    "summary": document[:300],
-                    "solution": metadata.get("solution", "No solution recorded"),
-                    "similarity_score": round(similarity, 4),
-                    "category": metadata.get("category", "Unknown"),
-                    "resolution_time_hours": float(
-                        metadata.get("resolution_time_hours", 2.0)
-                    ),
-                })
+                similar.append(
+                    {
+                        "ticket_id": ticket_id,
+                        "summary": document[:300],
+                        "solution": metadata.get("solution", "No solution recorded"),
+                        "similarity_score": round(similarity, 4),
+                        "category": metadata.get("category", "Unknown"),
+                        "resolution_time_hours": float(
+                            metadata.get("resolution_time_hours", 2.0)
+                        ),
+                    }
+                )
 
             # Sort by similarity and take top_k
             similar.sort(key=lambda x: x["similarity_score"], reverse=True)
@@ -232,15 +238,13 @@ class RetrievalService:
         # Run ChromaDB query in thread pool
         loop = asyncio.get_event_loop()
         similar = await loop.run_in_executor(
-            None,
-            lambda: self._query_similar(embedding_list, category, top_k)
+            None, lambda: self._query_similar(embedding_list, category, top_k)
         )
 
         # If category-filtered query returned no results, try without filter
         if not similar and category:
             similar = await loop.run_in_executor(
-                None,
-                lambda: self._query_similar(embedding_list, None, top_k)
+                None, lambda: self._query_similar(embedding_list, None, top_k)
             )
 
         top_score = similar[0]["similarity_score"] if similar else 0.0
@@ -256,7 +260,7 @@ class RetrievalService:
             "similar_tickets": similar,
             "top_similarity_score": round(top_score, 4),
             "knowledge_base_size": collection_size,
-            "embedding": embedding,   # pass to duplicate detector + LLM
+            "embedding": embedding,  # pass to duplicate detector + LLM
         }
 
     async def find_open_tickets_similar(
@@ -279,7 +283,7 @@ class RetrievalService:
                 category=None,
                 top_k=10,
                 status_filter="open",
-            )
+            ),
         )
 
     async def add_knowledge_article(
@@ -311,12 +315,12 @@ class RetrievalService:
         try:
             return {
                 "resolved_tickets": (
-                    self._tickets_collection.count()
-                    if self._tickets_collection else 0
+                    self._tickets_collection.count() if self._tickets_collection else 0
                 ),
                 "knowledge_articles": (
                     self._articles_collection.count()
-                    if self._articles_collection else 0
+                    if self._articles_collection
+                    else 0
                 ),
             }
         except Exception:

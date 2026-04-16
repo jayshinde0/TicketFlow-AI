@@ -10,43 +10,93 @@ import numpy as np
 from typing import Tuple, List, Dict, Optional
 from loguru import logger
 
-
 # ─── 10-domain label mapping ──────────────────────────────────────────
 LABEL_MAP: Dict[str, str] = {
-    "network": "Network", "connectivity": "Network", "internet": "Network",
-    "vpn": "Network", "wifi": "Network", "firewall": "Network",
-    "authentication": "Auth", "login": "Auth", "password": "Auth",
-    "account access": "Auth", "access denied": "Auth", "2fa": "Auth",
-    "sso": "Auth", "mfa": "Auth", "locked out": "Auth",
-    "software": "Software", "application": "Software", "app": "Software",
-    "bug": "Software", "crash": "Software", "installation": "Software",
-    "update": "Software", "upgrade": "Software",
-    "hardware": "Hardware", "device": "Hardware", "laptop": "Hardware",
-    "printer": "Hardware", "monitor": "Hardware", "keyboard": "Hardware",
+    "network": "Network",
+    "connectivity": "Network",
+    "internet": "Network",
+    "vpn": "Network",
+    "wifi": "Network",
+    "firewall": "Network",
+    "authentication": "Auth",
+    "login": "Auth",
+    "password": "Auth",
+    "account access": "Auth",
+    "access denied": "Auth",
+    "2fa": "Auth",
+    "sso": "Auth",
+    "mfa": "Auth",
+    "locked out": "Auth",
+    "software": "Software",
+    "application": "Software",
+    "app": "Software",
+    "bug": "Software",
+    "crash": "Software",
+    "installation": "Software",
+    "update": "Software",
+    "upgrade": "Software",
+    "hardware": "Hardware",
+    "device": "Hardware",
+    "laptop": "Hardware",
+    "printer": "Hardware",
+    "monitor": "Hardware",
+    "keyboard": "Hardware",
     "equipment": "Hardware",
-    "permission": "Access", "access request": "Access",
-    "role": "Access", "authorization": "Access", "grant access": "Access",
-    "revoke": "Access", "admin rights": "Access",
-    "billing": "Billing", "payment": "Billing", "invoice": "Billing",
-    "refund": "Billing", "subscription": "Billing", "charge": "Billing",
+    "permission": "Access",
+    "access request": "Access",
+    "role": "Access",
+    "authorization": "Access",
+    "grant access": "Access",
+    "revoke": "Access",
+    "admin rights": "Access",
+    "billing": "Billing",
+    "payment": "Billing",
+    "invoice": "Billing",
+    "refund": "Billing",
+    "subscription": "Billing",
+    "charge": "Billing",
     "transaction": "Billing",
-    "email": "Email", "mail": "Email", "inbox": "Email",
-    "outlook": "Email", "calendar": "Email", "smtp": "Email",
+    "email": "Email",
+    "mail": "Email",
+    "inbox": "Email",
+    "outlook": "Email",
+    "calendar": "Email",
+    "smtp": "Email",
     "communication": "Email",
-    "security": "Security", "phishing": "Security", "malware": "Security",
-    "virus": "Security", "ransomware": "Security", "breach": "Security",
-    "compliance": "Security", "threat": "Security",
-    "service request": "ServiceRequest", "new request": "ServiceRequest",
-    "provisioning": "ServiceRequest", "onboarding": "ServiceRequest",
-    "setup": "ServiceRequest", "request": "ServiceRequest",
-    "database": "Database", "server": "Database", "sql": "Database",
-    "backup": "Database", "storage": "Database", "cloud": "Database",
+    "security": "Security",
+    "phishing": "Security",
+    "malware": "Security",
+    "virus": "Security",
+    "ransomware": "Security",
+    "breach": "Security",
+    "compliance": "Security",
+    "threat": "Security",
+    "service request": "ServiceRequest",
+    "new request": "ServiceRequest",
+    "provisioning": "ServiceRequest",
+    "onboarding": "ServiceRequest",
+    "setup": "ServiceRequest",
+    "request": "ServiceRequest",
+    "database": "Database",
+    "server": "Database",
+    "sql": "Database",
+    "backup": "Database",
+    "storage": "Database",
+    "cloud": "Database",
     "infrastructure": "Database",
 }
 
 ALL_CATEGORIES: List[str] = [
-    "Network", "Auth", "Software", "Hardware", "Access",
-    "Billing", "Email", "Security", "ServiceRequest", "Database"
+    "Network",
+    "Auth",
+    "Software",
+    "Hardware",
+    "Access",
+    "Billing",
+    "Email",
+    "Security",
+    "ServiceRequest",
+    "Database",
 ]
 
 ALL_PRIORITIES: List[str] = ["Low", "Medium", "High", "Critical"]
@@ -71,38 +121,92 @@ def assign_priority(text: str, category: str) -> str:
 
     # Security — always Critical or High
     if category == "Security":
-        if any(w in text_lower for w in [
-            "ransomware", "encrypted", "breach", "stolen", "hacked",
-            "leaked", "compromised", "ransom", "ddos", "critical vulnerability"
-        ]):
+        if any(
+            w in text_lower
+            for w in [
+                "ransomware",
+                "encrypted",
+                "breach",
+                "stolen",
+                "hacked",
+                "leaked",
+                "compromised",
+                "ransom",
+                "ddos",
+                "critical vulnerability",
+            ]
+        ):
             return "Critical"
         return "High"
 
     # Critical — only truly severe cases
-    if any(w in text_lower for w in [
-        "production down", "all users", "whole team", "entire company",
-        "cannot work", "completely down", "system down", "outage",
-        "data loss", "100%", "critical alert", "critical slowdown",
-        "deadlock", "connection refused", "exhausted", "corrupted",
-        "unstable", "memory leak"
-    ]):
+    if any(
+        w in text_lower
+        for w in [
+            "production down",
+            "all users",
+            "whole team",
+            "entire company",
+            "cannot work",
+            "completely down",
+            "system down",
+            "outage",
+            "data loss",
+            "100%",
+            "critical alert",
+            "critical slowdown",
+            "deadlock",
+            "connection refused",
+            "exhausted",
+            "corrupted",
+            "unstable",
+            "memory leak",
+        ]
+    ):
         return "Critical"
 
     # High — blocked or broken
-    if any(w in text_lower for w in [
-        "urgent", "asap", "immediately", "blocking", "blocked",
-        "not working", "cannot access", "locked", "failed", "down",
-        "error", "crash", "crashing", "broken"
-    ]):
+    if any(
+        w in text_lower
+        for w in [
+            "urgent",
+            "asap",
+            "immediately",
+            "blocking",
+            "blocked",
+            "not working",
+            "cannot access",
+            "locked",
+            "failed",
+            "down",
+            "error",
+            "crash",
+            "crashing",
+            "broken",
+        ]
+    ):
         return "High"
 
     # Low — routine polite requests
-    if any(w in text_lower for w in [
-        "please provision", "please create", "please set up",
-        "please order", "please install", "request to create",
-        "request for", "need a new", "new employee", "new intern",
-        "onboarding", "ergonomic", "standing desk", "when possible"
-    ]):
+    if any(
+        w in text_lower
+        for w in [
+            "please provision",
+            "please create",
+            "please set up",
+            "please order",
+            "please install",
+            "request to create",
+            "request for",
+            "need a new",
+            "new employee",
+            "new intern",
+            "onboarding",
+            "ergonomic",
+            "standing desk",
+            "when possible",
+        ]
+    ):
         return "Low"
 
     # Medium — default for everything else
@@ -388,12 +492,22 @@ def generate_synthetic_tickets() -> pd.DataFrame:
     }
 
     prefixes = [
-        "", "Hi team, ", "Hello, ", "Urgent: ", "Hi IT support, ",
-        "Good morning, ", "Please help - ", "URGENT - ", "Hi, ",
-        "Dear support, ", "Hi helpdesk, ", "Hello support team, ",
+        "",
+        "Hi team, ",
+        "Hello, ",
+        "Urgent: ",
+        "Hi IT support, ",
+        "Good morning, ",
+        "Please help - ",
+        "URGENT - ",
+        "Hi, ",
+        "Dear support, ",
+        "Hi helpdesk, ",
+        "Hello support team, ",
     ]
     suffixes = [
-        "", " Please help urgently.",
+        "",
+        " Please help urgently.",
         " This is affecting my work.",
         " Multiple users are affected.",
         " This has been going on for 3 days.",
@@ -424,27 +538,25 @@ def generate_synthetic_tickets() -> pd.DataFrame:
             # ── KEY CHANGE: keyword-based priority not random ──────────
             priority = assign_priority(text, category)
 
-            rows.append({
-                "text": text,
-                "category": category,
-                "priority": priority,
-            })
+            rows.append(
+                {
+                    "text": text,
+                    "category": category,
+                    "priority": priority,
+                }
+            )
 
     df = pd.DataFrame(rows)
     df = df.sample(frac=1, random_state=42).reset_index(drop=True)
 
     # Log priority distribution for verification
     logger.info(f"Generated {len(df)} synthetic training samples")
-    logger.info(
-        f"Priority distribution: "
-        f"{df['priority'].value_counts().to_dict()}"
-    )
+    logger.info(f"Priority distribution: " f"{df['priority'].value_counts().to_dict()}")
     return df
 
 
 def load_training_data(
-    data_dir: Optional[str] = None,
-    use_synthetic: bool = True
+    data_dir: Optional[str] = None, use_synthetic: bool = True
 ) -> pd.DataFrame:
     """
     Load training data from CSV files or generate synthetic data.
@@ -458,16 +570,26 @@ def load_training_data(
                 df_raw = pd.read_csv(customer_csv)
                 logger.info(f"Loaded {len(df_raw)} rows from {customer_csv}")
                 text_col = next(
-                    (c for c in df_raw.columns
-                     if "description" in c.lower() or "body" in c.lower()
-                     or "text" in c.lower() or "ticket_description" in c.lower()),
-                    None
+                    (
+                        c
+                        for c in df_raw.columns
+                        if "description" in c.lower()
+                        or "body" in c.lower()
+                        or "text" in c.lower()
+                        or "ticket_description" in c.lower()
+                    ),
+                    None,
                 )
                 label_col = next(
-                    (c for c in df_raw.columns
-                     if "type" in c.lower() or "category" in c.lower()
-                     or "topic" in c.lower() or "issue_type" in c.lower()),
-                    None
+                    (
+                        c
+                        for c in df_raw.columns
+                        if "type" in c.lower()
+                        or "category" in c.lower()
+                        or "topic" in c.lower()
+                        or "issue_type" in c.lower()
+                    ),
+                    None,
                 )
                 if text_col and label_col:
                     df_mapped = pd.DataFrame()
@@ -477,9 +599,7 @@ def load_training_data(
                     df_mapped = df_mapped.dropna(subset=["category"])
                     df_mapped["priority"] = "Medium"
                     dfs.append(df_mapped[["text", "category", "priority"]])
-                    logger.info(
-                        f"Mapped {len(df_mapped)} samples from Kaggle dataset"
-                    )
+                    logger.info(f"Mapped {len(df_mapped)} samples from Kaggle dataset")
             except Exception as e:
                 logger.warning(f"Failed to load Kaggle dataset: {e}")
 

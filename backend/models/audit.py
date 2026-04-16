@@ -7,14 +7,15 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
-
 # ─── Database document ────────────────────────────────────────────────
+
 
 class AuditLogDocument(BaseModel):
     """
     Immutable record of a single AI pipeline run for a ticket.
     Written once; never updated (append-only audit trail).
     """
+
     ticket_id: str
     timestamp: datetime
 
@@ -45,7 +46,7 @@ class AuditLogDocument(BaseModel):
     sentiment_score: float
 
     # ── Agent 4 (Response / LLM) output ──────────────────────────────
-    generated_response_preview: Optional[str] = None   # first 200 chars
+    generated_response_preview: Optional[str] = None  # first 200 chars
     hallucination_detected: bool = False
     fallback_used: bool = False
     generation_time_ms: Optional[int] = None
@@ -67,7 +68,7 @@ class AuditLogDocument(BaseModel):
     final_outcome: Optional[str] = None  # e.g. "resolved via AI response"
 
     # ── Processing performance ───────────────────────────────────────
-    processing_time_ms: Optional[int] = None   # total pipeline time
+    processing_time_ms: Optional[int] = None  # total pipeline time
 
     class Config:
         populate_by_name = True
@@ -75,8 +76,10 @@ class AuditLogDocument(BaseModel):
 
 # ─── Request schemas ──────────────────────────────────────────────────
 
+
 class AuditLogFilter(BaseModel):
     """Query parameters for GET /api/admin/audit-logs."""
+
     ticket_id: Optional[str] = None
     routing_decision: Optional[str] = None
     model_version: Optional[str] = None
@@ -89,8 +92,10 @@ class AuditLogFilter(BaseModel):
 
 # ─── Response schemas ─────────────────────────────────────────────────
 
+
 class AuditLogResponse(BaseModel):
     """Single audit log entry in API response."""
+
     ticket_id: str
     timestamp: datetime
     model_version: str
@@ -107,6 +112,7 @@ class AuditLogResponse(BaseModel):
 
 class AuditLogListResponse(BaseModel):
     """Paginated audit log response."""
+
     logs: List[AuditLogResponse]
     total: int
     page: int

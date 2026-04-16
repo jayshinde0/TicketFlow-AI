@@ -10,8 +10,12 @@ from loguru import logger
 from core.database import get_feedback_collection, get_tickets_collection
 from core.security import get_current_user, require_role
 from models.feedback import (
-    FeedbackApprove, FeedbackEdit, FeedbackReject, FeedbackEscalate,
-    FeedbackResponse, FeedbackStats,
+    FeedbackApprove,
+    FeedbackEdit,
+    FeedbackReject,
+    FeedbackEscalate,
+    FeedbackResponse,
+    FeedbackStats,
 )
 from utils.helpers import utcnow
 
@@ -31,40 +35,41 @@ async def approve_debug(ticket_id: str):
         if not ticket:
             return {"error": "ticket not found", "steps": results}
         results["step1_status"] = ticket.get("status")
-        results["step1_category"] = (
-            ticket.get("ai_analysis") or {}
-        ).get("category")
+        results["step1_category"] = (ticket.get("ai_analysis") or {}).get("category")
     except Exception as e:
         return {"crashed_at": "step1_get_ticket", "error": str(e)}
 
     try:
         from services.retrieval_service import retrieval_service
+
         results["step2_retrieval_service"] = str(type(retrieval_service))
     except Exception as e:
         return {"crashed_at": "step2_retrieval_service", "error": str(e)}
 
     try:
         from services.audit_service import audit_service
+
         results["step3_audit_service"] = str(type(audit_service))
     except Exception as e:
         return {"crashed_at": "step3_audit_service", "error": str(e)}
 
     try:
         from services.notification_service import notification_service
-        results["step4_notification_service"] = str(
-            type(notification_service)
-        )
+
+        results["step4_notification_service"] = str(type(notification_service))
     except Exception as e:
         return {"crashed_at": "step4_notification_service", "error": str(e)}
 
     try:
         from services.retraining_service import retraining_service
+
         results["step5_retraining_service"] = str(type(retraining_service))
     except Exception as e:
         return {"crashed_at": "step5_retraining_service", "error": str(e)}
 
     try:
         from services.retraining_service import retraining_service
+
         should = await retraining_service.should_retrain()
         results["step6_should_retrain"] = should
     except Exception as e:
@@ -74,6 +79,7 @@ async def approve_debug(ticket_id: str):
 
 
 # ─── Private helpers ──────────────────────────────────────────────────
+
 
 async def _get_ticket_or_404(ticket_id: str) -> dict:
     """Fetch ticket from MongoDB or raise 404."""
@@ -164,15 +170,12 @@ async def _store_feedback(
     # Step B — check retraining threshold (non-fatal)
     try:
         from services.retraining_service import retraining_service
+
         should_retrain = await retraining_service.should_retrain()
         if should_retrain:
-            logger.info(
-                "Feedback threshold reached — retraining should be triggered."
-            )
+            logger.info("Feedback threshold reached — retraining should be triggered.")
     except Exception as e:
-        logger.warning(
-            f"[_store_feedback] retraining check failed (non-fatal): {e}"
-        )
+        logger.warning(f"[_store_feedback] retraining check failed (non-fatal): {e}")
 
 
 async def _add_to_chromadb(
@@ -186,9 +189,9 @@ async def _add_to_chromadb(
     """Add resolved ticket to ChromaDB (non-fatal if service unavailable)."""
     try:
         from services.retrieval_service import retrieval_service
-        cleaned_text = (
-            ticket_doc.get("cleaned_text")
-            or ticket_doc.get("description", "")
+
+        cleaned_text = ticket_doc.get("cleaned_text") or ticket_doc.get(
+            "description", ""
         )
         if not cleaned_text:
             logger.warning(
@@ -205,17 +208,14 @@ async def _add_to_chromadb(
         )
         logger.debug(f"Ticket {ticket_id} added to ChromaDB")
     except Exception as e:
-        logger.warning(
-            f"[_add_to_chromadb] ChromaDB update failed (non-fatal): {e}"
-        )
+        logger.warning(f"[_add_to_chromadb] ChromaDB update failed (non-fatal): {e}")
 
 
-async def _audit_action(
-    ticket_id: str, action: str, note: str
-) -> None:
+async def _audit_action(ticket_id: str, action: str, note: str) -> None:
     """Update audit log (non-fatal)."""
     try:
         from services.audit_service import audit_service
+
         await audit_service.update_agent_action(ticket_id, action, note)
     except Exception as e:
         logger.warning(f"[_audit_action] Audit log failed (non-fatal): {e}")
@@ -225,32 +225,26 @@ async def _notify_resolved(ticket_id: str, action: str) -> None:
     """Send resolution notification (non-fatal)."""
     try:
         from services.notification_service import notification_service
-        await notification_service.notify_ticket_resolved(
-            ticket_id, {"action": action}
-        )
+
+        await notification_service.notify_ticket_resolved(ticket_id, {"action": action})
     except Exception as e:
-        logger.warning(
-            f"[_notify_resolved] Notification failed (non-fatal): {e}"
-        )
+        logger.warning(f"[_notify_resolved] Notification failed (non-fatal): {e}")
 
 
 # ─── POST /{ticket_id}/approve ────────────────────────────────────────
+
 
 @router.post("/{ticket_id}/approve", response_model=FeedbackResponse)
 async def approve_suggestion(
     ticket_id: str,
     body: FeedbackApprove = None,
-    current_user: dict = Depends(
-        require_role("agent", "admin", "senior_engineer")
-    ),
+    current_user: dict = Depends(require_role("agent", "admin", "senior_engineer")),
 ):
     """Agent approves the AI-generated suggestion as-is."""
     try:
         ticket = await _get_ticket_or_404(ticket_id)
         ai = ticket.get("ai_analysis") or {}
-        final_response = (
-            ai.get("generated_response") or "Issue has been resolved."
-        )
+        final_response = ai.get("generated_response") or "Issue has been resolved."
 
         # Core action — must succeed
         await _resolve_ticket(
@@ -281,9 +275,7 @@ async def approve_suggestion(
         await _audit_action(ticket_id, "approved", "resolved via AI response")
         await _notify_resolved(ticket_id, "approved")
 
-        logger.info(
-            f"Ticket {ticket_id} approved by {current_user['user_id']}"
-        )
+        logger.info(f"Ticket {ticket_id} approved by {current_user['user_id']}")
         return FeedbackResponse(
             success=True,
             message="Ticket approved and resolved successfully.",
@@ -294,9 +286,7 @@ async def approve_suggestion(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(
-            f"APPROVE CRASHED for {ticket_id}: {e}", exc_info=True
-        )
+        logger.error(f"APPROVE CRASHED for {ticket_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to approve ticket: {str(e)}",
@@ -305,25 +295,20 @@ async def approve_suggestion(
 
 # ─── POST /{ticket_id}/edit ───────────────────────────────────────────
 
+
 @router.post("/{ticket_id}/edit", response_model=FeedbackResponse)
 async def edit_and_approve(
     ticket_id: str,
     body: FeedbackEdit,
-    current_user: dict = Depends(
-        require_role("agent", "admin", "senior_engineer")
-    ),
+    current_user: dict = Depends(require_role("agent", "admin", "senior_engineer")),
 ):
     """Agent edits the AI response and approves the corrected version."""
     try:
         ticket = await _get_ticket_or_404(ticket_id)
         ai = ticket.get("ai_analysis") or {}
 
-        effective_category = (
-            body.corrected_category or ai.get("category", "Software")
-        )
-        effective_priority = (
-            body.corrected_priority or ai.get("priority", "Medium")
-        )
+        effective_category = body.corrected_category or ai.get("category", "Software")
+        effective_priority = body.corrected_priority or ai.get("priority", "Medium")
 
         # Core action — must succeed
         await _resolve_ticket(
@@ -360,8 +345,7 @@ async def edit_and_approve(
         await _notify_resolved(ticket_id, "edited")
 
         logger.info(
-            f"Ticket {ticket_id} edited and approved by "
-            f"{current_user['user_id']}"
+            f"Ticket {ticket_id} edited and approved by " f"{current_user['user_id']}"
         )
         return FeedbackResponse(
             success=True,
@@ -373,9 +357,7 @@ async def edit_and_approve(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(
-            f"EDIT CRASHED for {ticket_id}: {e}", exc_info=True
-        )
+        logger.error(f"EDIT CRASHED for {ticket_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to edit ticket: {str(e)}",
@@ -384,13 +366,12 @@ async def edit_and_approve(
 
 # ─── POST /{ticket_id}/reject ─────────────────────────────────────────
 
+
 @router.post("/{ticket_id}/reject", response_model=FeedbackResponse)
 async def reject_and_resolve(
     ticket_id: str,
     body: FeedbackReject,
-    current_user: dict = Depends(
-        require_role("agent", "admin", "senior_engineer")
-    ),
+    current_user: dict = Depends(require_role("agent", "admin", "senior_engineer")),
 ):
     """Agent rejects AI response and sends a manual resolution."""
     try:
@@ -420,9 +401,7 @@ async def reject_and_resolve(
         )
 
         # Non-fatal side effects
-        await _audit_action(
-            ticket_id, "rejected", "manually resolved by agent"
-        )
+        await _audit_action(ticket_id, "rejected", "manually resolved by agent")
         await _notify_resolved(ticket_id, "rejected")
 
         logger.info(
@@ -439,9 +418,7 @@ async def reject_and_resolve(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(
-            f"REJECT CRASHED for {ticket_id}: {e}", exc_info=True
-        )
+        logger.error(f"REJECT CRASHED for {ticket_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to reject ticket: {str(e)}",
@@ -449,6 +426,7 @@ async def reject_and_resolve(
 
 
 # ─── GET /stats ───────────────────────────────────────────────────────
+
 
 @router.get("/stats", response_model=FeedbackStats)
 async def get_feedback_stats(
@@ -463,45 +441,23 @@ async def get_feedback_stats(
                 "_id": None,
                 "total": {"$sum": 1},
                 "approved": {
-                    "$sum": {
-                        "$cond": [{"$eq": ["$action", "approved"]}, 1, 0]
-                    }
+                    "$sum": {"$cond": [{"$eq": ["$action", "approved"]}, 1, 0]}
                 },
-                "edited": {
-                    "$sum": {
-                        "$cond": [{"$eq": ["$action", "edited"]}, 1, 0]
-                    }
-                },
+                "edited": {"$sum": {"$cond": [{"$eq": ["$action", "edited"]}, 1, 0]}},
                 "rejected": {
-                    "$sum": {
-                        "$cond": [{"$eq": ["$action", "rejected"]}, 1, 0]
-                    }
+                    "$sum": {"$cond": [{"$eq": ["$action", "rejected"]}, 1, 0]}
                 },
                 "escalated": {
-                    "$sum": {
-                        "$cond": [{"$eq": ["$action", "escalated"]}, 1, 0]
-                    }
+                    "$sum": {"$cond": [{"$eq": ["$action", "escalated"]}, 1, 0]}
                 },
                 "pending": {
-                    "$sum": {
-                        "$cond": [
-                            {"$eq": ["$used_for_retraining", False]}, 1, 0
-                        ]
-                    }
+                    "$sum": {"$cond": [{"$eq": ["$used_for_retraining", False]}, 1, 0]}
                 },
                 "cat_corrections": {
-                    "$sum": {
-                        "$cond": [
-                            {"$ne": ["$corrected_category", None]}, 1, 0
-                        ]
-                    }
+                    "$sum": {"$cond": [{"$ne": ["$corrected_category", None]}, 1, 0]}
                 },
                 "pri_corrections": {
-                    "$sum": {
-                        "$cond": [
-                            {"$ne": ["$corrected_priority", None]}, 1, 0
-                        ]
-                    }
+                    "$sum": {"$cond": [{"$ne": ["$corrected_priority", None]}, 1, 0]}
                 },
             }
         }
@@ -521,10 +477,6 @@ async def get_feedback_stats(
         edit_rate=round(stats.get("edited", 0) / total, 4),
         rejection_rate=round(stats.get("rejected", 0) / total, 4),
         pending_retraining=stats.get("pending", 0),
-        category_correction_rate=round(
-            stats.get("cat_corrections", 0) / total, 4
-        ),
-        priority_correction_rate=round(
-            stats.get("pri_corrections", 0) / total, 4
-        ),
+        category_correction_rate=round(stats.get("cat_corrections", 0) / total, 4),
+        priority_correction_rate=round(stats.get("pri_corrections", 0) / total, 4),
     )

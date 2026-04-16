@@ -30,17 +30,18 @@ def get_llm_provider():
 
     if provider_name == "ollama":
         from services.ollama_provider import ollama_provider
+
         logger.debug("LLM provider: Ollama (local)")
         return ollama_provider
 
     if provider_name == "qwen":
         from services.qwen_provider import qwen_provider
+
         logger.debug("LLM provider: Qwen (production)")
         return qwen_provider
 
     raise ValueError(
-        f"Unknown LLM_PROVIDER='{provider_name}'. "
-        f"Valid options: 'ollama', 'qwen'"
+        f"Unknown LLM_PROVIDER='{provider_name}'. " f"Valid options: 'ollama', 'qwen'"
     )
 
 

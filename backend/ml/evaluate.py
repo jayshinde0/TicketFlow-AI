@@ -25,7 +25,11 @@ from ml.feature_engineering import FeatureEngineer
 from ml.models.category_classifier import CategoryClassifier
 from ml.models.priority_classifier import PriorityClassifier
 from ml.models.sla_predictor import SLAPredictor
-from ml.train import preprocess_texts, build_sla_feature_dicts, generate_synthetic_sla_labels
+from ml.train import (
+    preprocess_texts,
+    build_sla_feature_dicts,
+    generate_synthetic_sla_labels,
+)
 from utils.metrics import (
     compute_confusion_matrix,
     compute_expected_calibration_error,
@@ -90,9 +94,7 @@ def evaluate_category_model() -> dict:
     # Calibration curve
     y_proba = cat_clf.classifier.predict_proba(X_test)
     y_pred_array = cat_clf.classifier.predict(X_test)
-    correct = np.array([
-        int(p == t) for p, t in zip(y_pred_array, y_test)
-    ])
+    correct = np.array([int(p == t) for p, t in zip(y_pred_array, y_test)])
     max_conf = y_proba.max(axis=1)
     ece, calibration_data = compute_expected_calibration_error(max_conf, correct)
     logger.info(f"Expected Calibration Error (ECE): {ece:.4f}")
@@ -127,9 +129,7 @@ def evaluate_sla_model() -> dict:
         logger.warning("SLA model not found. Run training first.")
         return {}
 
-    probs = np.array([
-        sla_clf.predict_breach_probability(t) for t in test_sla_dicts
-    ])
+    probs = np.array([sla_clf.predict_breach_probability(t) for t in test_sla_dicts])
 
     auc_data = compute_sla_auc(test_labels, probs)
     threshold_metrics = metrics_at_threshold(test_labels, probs, threshold=0.70)

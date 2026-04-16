@@ -35,29 +35,39 @@ async def queue_status(
     # Count tickets by status
     open_count = await db["tickets"].count_documents({"status": "open"})
     in_progress = await db["tickets"].count_documents({"status": "in_progress"})
-    resolved_1h = await db["tickets"].count_documents({
-        "status": "resolved",
-        "updated_at": {"$gte": one_hour_ago},
-    })
+    resolved_1h = await db["tickets"].count_documents(
+        {
+            "status": "resolved",
+            "updated_at": {"$gte": one_hour_ago},
+        }
+    )
 
     # Count by routing decision
-    auto_resolved = await db["tickets"].count_documents({
-        "ai_analysis.routing_decision": "AUTO_RESOLVE",
-    })
-    suggest_count = await db["tickets"].count_documents({
-        "ai_analysis.routing_decision": "SUGGEST_TO_AGENT",
-    })
-    escalated = await db["tickets"].count_documents({
-        "ai_analysis.routing_decision": "ESCALATE_TO_HUMAN",
-    })
+    auto_resolved = await db["tickets"].count_documents(
+        {
+            "ai_analysis.routing_decision": "AUTO_RESOLVE",
+        }
+    )
+    suggest_count = await db["tickets"].count_documents(
+        {
+            "ai_analysis.routing_decision": "SUGGEST_TO_AGENT",
+        }
+    )
+    escalated = await db["tickets"].count_documents(
+        {
+            "ai_analysis.routing_decision": "ESCALATE_TO_HUMAN",
+        }
+    )
 
     # Count by priority in queue
     priority_breakdown = {}
     for p in ["Critical", "High", "Medium", "Low"]:
-        count = await db["tickets"].count_documents({
-            "status": {"$in": ["open", "in_progress"]},
-            "ai_analysis.priority": p,
-        })
+        count = await db["tickets"].count_documents(
+            {
+                "status": {"$in": ["open", "in_progress"]},
+                "ai_analysis.priority": p,
+            }
+        )
         priority_breakdown[p] = count
 
     return {

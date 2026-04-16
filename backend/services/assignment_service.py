@@ -40,6 +40,7 @@ class AssignmentService:
         """
         try:
             from core.database import get_db
+
             db = get_db()
             if db is None:
                 return None
@@ -151,14 +152,13 @@ class AssignmentService:
 
         return min(1.0, score)
 
-    async def assign_ticket(
-        self, ticket_id: str, agent_id: str
-    ) -> bool:
+    async def assign_ticket(self, ticket_id: str, agent_id: str) -> bool:
         """
         Assign a ticket to an agent and increment their load.
         """
         try:
             from core.database import get_db
+
             db = get_db()
             if db is None:
                 return False
@@ -166,10 +166,12 @@ class AssignmentService:
             # Update ticket
             await db["tickets"].update_one(
                 {"ticket_id": ticket_id},
-                {"$set": {
-                    "assigned_agent_id": agent_id,
-                    "status": "in_progress",
-                }},
+                {
+                    "$set": {
+                        "assigned_agent_id": agent_id,
+                        "status": "in_progress",
+                    }
+                },
             )
 
             # Increment agent load
@@ -185,14 +187,13 @@ class AssignmentService:
             logger.error(f"Ticket assignment failed: {e}")
             return False
 
-    async def release_ticket(
-        self, ticket_id: str, agent_id: str
-    ) -> bool:
+    async def release_ticket(self, ticket_id: str, agent_id: str) -> bool:
         """
         Release a ticket (on resolve/close) and decrement agent load.
         """
         try:
             from core.database import get_db
+
             db = get_db()
             if db is None:
                 return False

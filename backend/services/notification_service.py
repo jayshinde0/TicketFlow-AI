@@ -22,11 +22,13 @@ class NotificationService:
     async def notify_ticket_resolved(self, ticket_id: str, resolution: dict) -> None:
         """Notify all clients that a ticket was resolved."""
         try:
-            await ws_manager.broadcast_ticket_update({
-                "type": "resolved",
-                "ticket_id": ticket_id,
-                "resolution": resolution,
-            })
+            await ws_manager.broadcast_ticket_update(
+                {
+                    "type": "resolved",
+                    "ticket_id": ticket_id,
+                    "resolution": resolution,
+                }
+            )
         except Exception as e:
             logger.warning(f"notify_ticket_resolved error: {e}")
 
@@ -39,9 +41,7 @@ class NotificationService:
     ) -> None:
         """Warn agents when a ticket is approaching SLA breach."""
         try:
-            await ws_manager.broadcast_sla_warning(
-                ticket_id, int(minutes_left)
-            )
+            await ws_manager.broadcast_sla_warning(ticket_id, int(minutes_left))
         except Exception as e:
             logger.warning(f"notify_sla_warning error: {e}")
 
@@ -60,16 +60,19 @@ class NotificationService:
     ) -> None:
         """Notify admins when model retraining finishes."""
         try:
-            await ws_manager.broadcast_to_room("admin", {
-                "type": "retraining_complete",
-                "new_f1": round(new_f1, 4),
-                "old_f1": round(old_f1, 4),
-                "promoted": promoted,
-                "message": (
-                    f"Model retrained: F1 {old_f1:.3f} → {new_f1:.3f} "
-                    f"({'promoted' if promoted else 'kept old model'})"
-                ),
-            })
+            await ws_manager.broadcast_to_room(
+                "admin",
+                {
+                    "type": "retraining_complete",
+                    "new_f1": round(new_f1, 4),
+                    "old_f1": round(old_f1, 4),
+                    "promoted": promoted,
+                    "message": (
+                        f"Model retrained: F1 {old_f1:.3f} → {new_f1:.3f} "
+                        f"({'promoted' if promoted else 'kept old model'})"
+                    ),
+                },
+            )
         except Exception as e:
             logger.warning(f"notify_retraining_complete error: {e}")
 
@@ -81,12 +84,15 @@ class NotificationService:
     ) -> None:
         """Notify agents that a duplicate was linked."""
         try:
-            await ws_manager.broadcast_to_room("agent", {
-                "type": "duplicate_detected",
-                "new_ticket_id": new_ticket_id,
-                "parent_ticket_id": parent_ticket_id,
-                "similarity": round(similarity, 2),
-            })
+            await ws_manager.broadcast_to_room(
+                "agent",
+                {
+                    "type": "duplicate_detected",
+                    "new_ticket_id": new_ticket_id,
+                    "parent_ticket_id": parent_ticket_id,
+                    "similarity": round(similarity, 2),
+                },
+            )
         except Exception as e:
             logger.warning(f"notify_duplicate_detected error: {e}")
 

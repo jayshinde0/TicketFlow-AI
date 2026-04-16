@@ -28,7 +28,7 @@ SAMPLE_ARTICLES = [
             "Wait 5-10 minutes for email delivery (server delays can occur)",
             "Whitelist noreply@company.com in your email settings",
             "Request a new reset link if not received within 10 minutes",
-            "Contact IT support at ext. 5555 if issue persists"
+            "Contact IT support at ext. 5555 if issue persists",
         ],
         "prevention": "Add noreply@company.com to your email whitelist to prevent future delivery issues.",
         "tags": ["password", "reset", "email", "authentication", "forgot"],
@@ -50,7 +50,7 @@ SAMPLE_ARTICLES = [
             "Update to latest GlobalProtect version from IT portal",
             "Try connecting to alternate VPN server (vpn2.company.com)",
             "Restart your computer if issue persists",
-            "Contact network team if multiple users affected"
+            "Contact network team if multiple users affected",
         ],
         "prevention": "Keep VPN client updated and ensure firewall allows VPN traffic on ports 443 and 4501.",
         "tags": ["vpn", "connection", "timeout", "error800", "network"],
@@ -72,7 +72,7 @@ SAMPLE_ARTICLES = [
             "Click 'Install' button (requires admin approval for first-time users)",
             "Wait 5-10 minutes for automatic installation",
             "Restart your computer after installation completes",
-            "Launch Teams and sign in with your company email"
+            "Launch Teams and sign in with your company email",
         ],
         "prevention": "Request software access during onboarding process to avoid delays.",
         "tags": ["teams", "microsoft", "installation", "software", "onboarding"],
@@ -94,7 +94,7 @@ SAMPLE_ARTICLES = [
             "On your computer, go to Settings > Devices > Printers",
             "Remove the printer and add it again using IP address",
             "Restart Print Spooler service (services.msc > Print Spooler > Restart)",
-            "Contact facilities if printer still shows offline"
+            "Contact facilities if printer still shows offline",
         ],
         "prevention": "Use static IP addresses for network printers to prevent connection issues.",
         "tags": ["printer", "offline", "hardware", "network", "printing"],
@@ -117,7 +117,7 @@ SAMPLE_ARTICLES = [
             "Click 'More Settings' > 'Advanced' tab",
             "Ensure 'Leave a copy of messages on server' is checked",
             "Click 'Send/Receive All Folders' to force sync",
-            "Restart Outlook if issue persists"
+            "Restart Outlook if issue persists",
         ],
         "prevention": "Regularly archive old emails to stay under mailbox quota limit.",
         "tags": ["outlook", "email", "sync", "not receiving", "office365"],
@@ -140,7 +140,7 @@ SAMPLE_ARTICLES = [
             "IT will add you to appropriate security group",
             "Wait 15-30 minutes for Active Directory sync",
             "Restart your computer to refresh group memberships",
-            "Test access by navigating to shared folder"
+            "Test access by navigating to shared folder",
         ],
         "prevention": "Request access during onboarding or role change to avoid delays.",
         "tags": ["access", "shared drive", "permissions", "network", "folder"],
@@ -163,7 +163,7 @@ SAMPLE_ARTICLES = [
             "Run antivirus full scan (Windows Security or company antivirus)",
             "Check for Windows updates and install pending updates",
             "Restart computer after cleanup and updates",
-            "Contact IT if issue persists for hardware upgrade assessment"
+            "Contact IT if issue persists for hardware upgrade assessment",
         ],
         "prevention": "Regularly close unused applications, run disk cleanup monthly, and keep system updated.",
         "tags": ["slow", "performance", "lag", "freeze", "computer"],
@@ -187,7 +187,7 @@ SAMPLE_ARTICLES = [
             "Update WiFi driver: Device Manager > Network adapters > Update driver",
             "Forget WiFi network and reconnect with password",
             "Move closer to WiFi access point if signal is weak",
-            "Contact IT if issue affects multiple users in same area"
+            "Contact IT if issue affects multiple users in same area",
         ],
         "prevention": "Disable power saving for network adapters and keep WiFi drivers updated.",
         "tags": ["wifi", "disconnect", "wireless", "network", "connection"],
@@ -210,7 +210,7 @@ SAMPLE_ARTICLES = [
             "Repair Office installation: Control Panel > Programs > Microsoft Office > Change > Repair",
             "Split large file into smaller workbooks if possible",
             "Save file as .xlsx instead of .xls format",
-            "Contact IT for RAM upgrade if issue persists with large files"
+            "Contact IT for RAM upgrade if issue persists with large files",
         ],
         "prevention": "Keep Excel files under 5MB when possible, use external data connections for large datasets.",
         "tags": ["excel", "crash", "freeze", "large file", "office"],
@@ -232,7 +232,7 @@ SAMPLE_ARTICLES = [
             "Clear saved passwords in browser if auto-fill is using old password",
             "Contact IT Help Desk at ext. 5555 for immediate unlock if urgent",
             "Provide employee ID and verify identity for manual unlock",
-            "Update password in all devices after unlock to prevent re-lock"
+            "Update password in all devices after unlock to prevent re-lock",
         ],
         "prevention": "Use password manager to avoid typos, and update passwords on all devices simultaneously.",
         "tags": ["locked", "account", "login", "password", "authentication"],
@@ -248,31 +248,31 @@ async def seed_knowledge_base():
     """Seed MongoDB with sample knowledge base articles"""
     print("🌱 Seeding Knowledge Base...")
     print(f"Connecting to MongoDB: {settings.MONGODB_URL}")
-    
+
     client = AsyncIOMotorClient(settings.MONGODB_URL)
     db = client[settings.DATABASE_NAME]
     collection = db["knowledge_articles"]
-    
+
     try:
         # Clear existing articles (optional)
         print("\n🗑️  Clearing existing articles...")
         result = await collection.delete_many({})
         print(f"   Deleted {result.deleted_count} existing articles")
-        
+
         # Insert sample articles
         print("\n📝 Creating sample articles...")
         created_count = 0
-        
+
         for article in SAMPLE_ARTICLES:
             # Add timestamps
             article["created_at"] = datetime.now(timezone.utc)
             article["last_used_at"] = datetime.now(timezone.utc)
             article["embedding_id"] = article["article_id"]
-            
+
             await collection.insert_one(article.copy())
             created_count += 1
             print(f"   ✅ Created: {article['article_id']} - {article['title']}")
-            
+
             # Also add to ChromaDB for semantic search
             article_content = (
                 f"{article['title']} {article['problem_description']} "
@@ -288,21 +288,21 @@ async def seed_knowledge_base():
                     "tags": ",".join(article["tags"]),
                 },
             )
-        
+
         print(f"\n✨ Successfully created {created_count} knowledge base articles!")
         print("\n📊 Articles by Category:")
-        
+
         # Count by category
         pipeline = [
             {"$group": {"_id": "$category", "count": {"$sum": 1}}},
-            {"$sort": {"count": -1}}
+            {"$sort": {"count": -1}},
         ]
         async for doc in collection.aggregate(pipeline):
             print(f"   • {doc['_id']}: {doc['count']} articles")
-        
+
         print("\n🎯 Knowledge Base is ready!")
         print("   Navigate to http://localhost:3000/knowledge-base to view articles")
-        
+
     except Exception as e:
         print(f"\n❌ Error seeding knowledge base: {e}")
         sys.exit(1)

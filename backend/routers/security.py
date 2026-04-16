@@ -31,6 +31,7 @@ router = APIRouter(prefix="/api/security", tags=["Security"])
 
 # ─── Request / Response models ────────────────────────────────────────
 
+
 class AnalyzeTicketRequest(BaseModel):
     ticket_id: str
     subject: str = Field(min_length=1, max_length=500)
@@ -57,20 +58,26 @@ class IncidentReportBody(BaseModel):
 
 # ─── Helper: broadcast security alert via WebSocket ──────────────────
 
-async def _broadcast_security_alert(ticket_id: str, threat_level: str, threat_type: str, details: dict):
+
+async def _broadcast_security_alert(
+    ticket_id: str, threat_level: str, threat_type: str, details: dict
+):
     """Broadcast a real-time security alert to all connected admin/agent clients."""
     try:
-        await ws_manager.broadcast_security_alert({
-            "ticket_id": ticket_id,
-            "threat_level": threat_level,
-            "threat_type": threat_type,
-            **details,
-        })
+        await ws_manager.broadcast_security_alert(
+            {
+                "ticket_id": ticket_id,
+                "threat_level": threat_level,
+                "threat_type": threat_type,
+                **details,
+            }
+        )
     except Exception as e:
         logger.warning(f"Security WebSocket broadcast failed (non-fatal): {e}")
 
 
 # ─── Helper: append to ticket security_logs ──────────────────────────
+
 
 async def _append_security_log(ticket_id: str, action: str, actor: str, details: dict):
     """Append an entry to the ticket's security_logs array in MongoDB."""
@@ -96,6 +103,7 @@ async def _append_security_log(ticket_id: str, action: str, actor: str, details:
 
 
 # ─── POST /analyze-ticket ─────────────────────────────────────────────
+
 
 @router.post("/analyze-ticket")
 async def analyze_ticket(
@@ -133,7 +141,9 @@ async def analyze_ticket(
         }
         if result["disable_auto_resolve"]:
             update_fields["ai_analysis.routing_decision"] = "ESCALATE_TO_HUMAN"
-            update_fields["ai_analysis.priority"] = "High" if threat_level == "suspicious" else "Critical"
+            update_fields["ai_analysis.priority"] = (
+                "High" if threat_level == "suspicious" else "Critical"
+            )
 
         await db["tickets"].update_one(
             {"ticket_id": body.ticket_id},
@@ -199,6 +209,7 @@ async def analyze_ticket(
 
 
 # ─── POST /escalate-ticket ────────────────────────────────────────────
+
 
 @router.post("/escalate-ticket")
 async def escalate_ticket(
@@ -277,6 +288,7 @@ async def escalate_ticket(
 
 # ─── GET /threats ─────────────────────────────────────────────────────
 
+
 @router.get("/threats")
 async def list_threats(
     status_filter: Optional[str] = Query(None, alias="status"),
@@ -310,7 +322,13 @@ async def list_threats(
     total = await db["escalation_logs"].count_documents(query)
     skip = (page - 1) * page_size
 
-    cursor = db["escalation_logs"].find(query).sort("created_at", -1).skip(skip).limit(page_size)
+    cursor = (
+        db["escalation_logs"]
+        .find(query)
+        .sort("created_at", -1)
+        .skip(skip)
+        .limit(page_size)
+    )
     items = []
     async for doc in cursor:
         doc.pop("_id", None)
@@ -318,9 +336,14 @@ async def list_threats(
         # Enrich with ticket threat metadata if available
         ticket = await db["tickets"].find_one(
             {"ticket_id": doc.get("ticket_id")},
-            {"ai_analysis.threat_level": 1, "ai_analysis.threat_type": 1,
-             "ai_analysis.threat_confidence": 1, "ai_analysis.triggered_rules": 1,
-             "ai_analysis.detection_reason": 1, "subject": 1},
+            {
+                "ai_analysis.threat_level": 1,
+                "ai_analysis.threat_type": 1,
+                "ai_analysis.threat_confidence": 1,
+                "ai_analysis.triggered_rules": 1,
+                "ai_analysis.detection_reason": 1,
+                "subject": 1,
+            },
         )
         if ticket:
             ai = ticket.get("ai_analysis") or {}
@@ -343,6 +366,7 @@ async def list_threats(
 
 # ─── GET /stats ───────────────────────────────────────────────────────
 
+
 @router.get("/stats")
 async def threat_stats(
     current_user: dict = Depends(require_role("admin", "agent")),
@@ -355,8 +379,12 @@ async def threat_stats(
         raise HTTPException(status_code=503, detail="Database unavailable")
 
     total = await db["escalation_logs"].count_documents({})
-    pending = await db["escalation_logs"].count_documents({"acknowledged": False, "resolved": False})
-    acknowledged = await db["escalation_logs"].count_documents({"acknowledged": True, "resolved": False})
+    pending = await db["escalation_logs"].count_documents(
+        {"acknowledged": False, "resolved": False}
+    )
+    acknowledged = await db["escalation_logs"].count_documents(
+        {"acknowledged": True, "resolved": False}
+    )
     resolved = await db["escalation_logs"].count_documents({"resolved": True})
 
     # Threat type breakdown
@@ -418,6 +446,7 @@ async def threat_stats(
 
 # ─── GET /playbook/{threat_type} ──────────────────────────────────────
 
+
 @router.get("/playbook/{threat_type}")
 async def get_playbook(
     threat_type: str,
@@ -429,6 +458,7 @@ async def get_playbook(
 
 
 # ─── POST /{ticket_id}/acknowledge ───────────────────────────────────
+
 
 @router.post("/{ticket_id}/acknowledge")
 async def acknowledge_threat(
@@ -458,6 +488,7 @@ async def acknowledge_threat(
 
 
 # ─── POST /{ticket_id}/resolve ────────────────────────────────────────
+
 
 @router.post("/{ticket_id}/resolve")
 async def resolve_threat(
@@ -497,6 +528,7 @@ async def resolve_threat(
 
 # ─── GET /{ticket_id}/logs ────────────────────────────────────────────
 
+
 @router.get("/{ticket_id}/logs")
 async def get_security_logs(
     ticket_id: str,
@@ -509,9 +541,13 @@ async def get_security_logs(
 
     ticket = await db["tickets"].find_one(
         {"ticket_id": ticket_id},
-        {"security_logs": 1, "ai_analysis.threat_level": 1,
-         "ai_analysis.threat_type": 1, "ai_analysis.triggered_rules": 1,
-         "ai_analysis.detection_reason": 1},
+        {
+            "security_logs": 1,
+            "ai_analysis.threat_level": 1,
+            "ai_analysis.threat_type": 1,
+            "ai_analysis.triggered_rules": 1,
+            "ai_analysis.detection_reason": 1,
+        },
     )
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
@@ -528,6 +564,7 @@ async def get_security_logs(
 
 
 # ─── POST /{ticket_id}/incident-report ───────────────────────────────
+
 
 @router.post("/{ticket_id}/incident-report")
 async def submit_incident_report(

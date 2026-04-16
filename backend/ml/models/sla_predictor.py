@@ -15,27 +15,34 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import OneHotEncoder
 from scipy.sparse import hstack, csr_matrix
 
-
 ARTIFACT_DIR = Path(__file__).parent.parent / "artifacts"
 
 ALL_CATEGORIES = [
-    "Network", "Auth", "Software", "Hardware", "Access",
-    "Billing", "Email", "Security", "ServiceRequest", "Database"
+    "Network",
+    "Auth",
+    "Software",
+    "Hardware",
+    "Access",
+    "Billing",
+    "Email",
+    "Security",
+    "ServiceRequest",
+    "Database",
 ]
 
 # ─── SLA limit lookup (minutes) ───────────────────────────────────────
 # category → priority → minutes before breach
 SLA_MINUTES = {
-    "Network":        {"Low": 2880, "Medium": 480,  "High": 120, "Critical": 30},
-    "Auth":           {"Low": 1440, "Medium": 240,  "High": 60,  "Critical": 15},
-    "Software":       {"Low": 4320, "Medium": 1440, "High": 240, "Critical": 60},
-    "Hardware":       {"Low": 4320, "Medium": 1440, "High": 240, "Critical": 120},
-    "Access":         {"Low": 2880, "Medium": 480,  "High": 120, "Critical": 30},
-    "Billing":        {"Low": 2880, "Medium": 1440, "High": 240, "Critical": 60},
-    "Email":          {"Low": 2880, "Medium": 480,  "High": 120, "Critical": 60},
-    "Security":       {"Low": 30,   "Medium": 30,   "High": 30,  "Critical": 5},
-    "ServiceRequest": {"Low": 2880, "Medium": 480,  "High": 120, "Critical": 30},
-    "Database":       {"Low": 1440, "Medium": 240,  "High": 60,  "Critical": 5},
+    "Network": {"Low": 2880, "Medium": 480, "High": 120, "Critical": 30},
+    "Auth": {"Low": 1440, "Medium": 240, "High": 60, "Critical": 15},
+    "Software": {"Low": 4320, "Medium": 1440, "High": 240, "Critical": 60},
+    "Hardware": {"Low": 4320, "Medium": 1440, "High": 240, "Critical": 120},
+    "Access": {"Low": 2880, "Medium": 480, "High": 120, "Critical": 30},
+    "Billing": {"Low": 2880, "Medium": 1440, "High": 240, "Critical": 60},
+    "Email": {"Low": 2880, "Medium": 480, "High": 120, "Critical": 60},
+    "Security": {"Low": 30, "Medium": 30, "High": 30, "Critical": 5},
+    "ServiceRequest": {"Low": 2880, "Medium": 480, "High": 120, "Critical": 30},
+    "Database": {"Low": 1440, "Medium": 240, "High": 60, "Critical": 5},
 }
 
 
@@ -112,8 +119,8 @@ class SLAPredictor:
                 float(t.get("sentiment_score", 0.0)),
                 int(t.get("current_queue_length", 5)),
                 float(t.get("similar_ticket_avg_resolution_hours", 2.0)),
-                int(day >= 5),                  # is_weekend
-                int(hour < 8 or hour >= 18),    # is_outside_business_hours
+                int(day >= 5),  # is_weekend
+                int(hour < 8 or hour >= 18),  # is_outside_business_hours
             ]
             scalar_rows.append(row)
 
@@ -169,8 +176,10 @@ class SLAPredictor:
         if not self._trained:
             # Heuristic fallback based on priority
             priority_risk = {
-                "Critical": 0.85, "High": 0.55,
-                "Medium": 0.30, "Low": 0.10
+                "Critical": 0.85,
+                "High": 0.55,
+                "Medium": 0.30,
+                "Low": 0.10,
             }
             return priority_risk.get(ticket.get("priority", "Medium"), 0.30)
 
