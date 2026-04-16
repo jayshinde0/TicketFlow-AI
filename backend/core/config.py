@@ -8,7 +8,6 @@ from pydantic import Field
 from typing import Dict, List
 import os
 
-
 class Settings(BaseSettings):
     # ─── Application ───────────────────────────────────────────────────
     APP_NAME: str = "TicketFlow AI"
@@ -52,6 +51,7 @@ class Settings(BaseSettings):
         default="http://localhost:11434", env="OLLAMA_URL"
     )
     OLLAMA_MODEL: str = Field(default="mistral-nemo", env="OLLAMA_MODEL")
+    # OLLAMA_MODEL: str = Field(default="qwen2.5-coder:7b", env="OLLAMA_MODEL")
     OLLAMA_TEMPERATURE: float = 0.3
     OLLAMA_MAX_TOKENS: int = 250
 

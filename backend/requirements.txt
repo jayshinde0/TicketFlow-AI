@@ -35,6 +35,8 @@ scipy==1.13.0
 sentence-transformers==3.0.0
 # spaCy 3.8.x dropped the typer<0.10 constraint — resolves typer conflict
 spacy==3.8.4
+# Explicit click version to fix typer compatibility
+click>=8.0.0
 nltk==3.8.1
 langdetect==1.0.9
 deep-translator==1.11.4

@@ -29,7 +29,19 @@ async def lifespan(app: FastAPI):
     await create_indexes()
     logger.info("MongoDB connected and indexes created.")
 
-    # 2. Start APScheduler for background jobs
+    # 2. Display LLM Provider Configuration
+    if settings.LLM_PROVIDER.lower() == "ollama":
+        logger.info(f"🤖 LLM provider: Ollama (local)")
+        logger.info(f"📦 Ollama model: {settings.OLLAMA_MODEL}")
+        logger.info(f"🔗 Ollama URL: {settings.OLLAMA_URL}")
+    elif settings.LLM_PROVIDER.lower() == "qwen":
+        logger.info(f"🤖 LLM provider: Qwen (cloud)")
+        logger.info(f"📦 Qwen model: {settings.QWEN_MODEL}")
+        logger.info(f"🔗 Qwen API: {settings.QWEN_API_BASE}")
+    else:
+        logger.warning(f"⚠️  Unknown LLM provider: {settings.LLM_PROVIDER}")
+
+    # 3. Start APScheduler for background jobs
     try:
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
         from apscheduler.triggers.interval import IntervalTrigger

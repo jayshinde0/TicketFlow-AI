@@ -19,18 +19,41 @@ from services.llm_provider_factory import llm_provider
 
 
 # ─── Prompt templates ─────────────────────────────────────────────────
+# RAG_PROMPT_TEMPLATE = """\
+# You are a professional IT support specialist.
+
+# User ticket: {ticket_text}
+# Category: {category}
+
+# Similar resolved ticket solution: {retrieved_solution}
+
+# Write a professional support response in 3-4 sentences.
+# Be specific and actionable. Use numbered steps if needed.
+# Do not add disclaimers or say 'I hope this helps'.
+# Do not start with 'I' or greetings.
+# """
 RAG_PROMPT_TEMPLATE = """\
-You are a professional IT support specialist.
+You are a professional IT support specialist with deep technical knowledge.
 
 User ticket: {ticket_text}
 Category: {category}
 
 Similar resolved ticket solution: {retrieved_solution}
 
-Write a professional support response in 3-4 sentences.
-Be specific and actionable. Use numbered steps if needed.
-Do not add disclaimers or say 'I hope this helps'.
-Do not start with 'I' or greetings.
+Generate a response that:
+1. Is SPECIFIC to the {category} category - avoid generic troubleshooting
+2. Includes specific steps that user can execute immediately (log locations, commands, etc.)
+3. Explains the ROOT CAUSE if possible
+4. Has diagnostic steps BEFORE suggesting reinstall/escalation
+5. For Network issues: include firewall, port, or connectivity diagnostics
+6. For Software issues: include error codes, log files, version checks
+7. For Security issues: include security implications
+8. For Auth issues: include account status checks, MFA tests
+9. Only suggest escalation if user cannot proceed with steps provided
+10. Use numbered steps with clear outcomes (what success looks like)
+
+Format: 4-6 detailed steps with expected outcomes.
+Do not use generic disclaimers. Be direct and technical.
 """
 
 KNOWLEDGE_ARTICLE_PROMPT = """\
