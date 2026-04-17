@@ -171,6 +171,7 @@ from routers.security import router as security_router
 from routers.queue import router as queue_router
 from routers.simulation import router as simulation_router
 from routers.images import router as images_router
+from routers.journey import router as journey_router  # NEW: Journey tracking
 
 app.include_router(auth_router)
 app.include_router(tickets_router)
@@ -183,6 +184,7 @@ app.include_router(security_router)
 app.include_router(queue_router)
 app.include_router(simulation_router)
 app.include_router(images_router)
+app.include_router(journey_router)  # NEW: Journey tracking
 
 
 # ─── Health endpoints ─────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ticketsAPI, feedbackAPI } from "../services/api";
 import Loader, { RoutingBadge, PriorityBadge, ConfidenceBar } from "../components/ui/Loader";
+import TicketJourney from "../components/ticket/TicketJourney";
 import { useAuth } from "../contexts/AuthContext";
 import toast from "react-hot-toast";
 import {
@@ -217,6 +218,9 @@ export default function TicketDetail() {
 
         {/* Sidebar: AI metrics */}
         <div className="space-y-4">
+          {/* Journey Tracking */}
+          <TicketJourney ticketId={id} />
+
           <div className="card space-y-4">
             <h3 className="text-sm font-semibold text-gray-300">AI Metrics</h3>
 

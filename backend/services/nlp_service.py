@@ -5,9 +5,10 @@ Runs on every incoming ticket before the AI pipeline.
 
 import re
 import asyncio
-from typing import Optional
+from typing import Optional, Dict, Any
 from loguru import logger
 from functools import lru_cache
+from core.config import settings
 
 import nltk
 import spacy
@@ -57,9 +58,12 @@ class NLPService:
     4. Short word filtering (< 2 chars)
     5. Reconstruct cleaned text string
     6. Extract scalar features for ML
+    
+    Returns: Dict with cleaned_text, language, features, is_english, original_cleaned
     """
 
     def __init__(self):
+        """Initialize NLP service with stopwords and lazy-load spaCy."""
         ensure_nltk_data()
         from nltk.corpus import stopwords
 
@@ -84,6 +88,7 @@ class NLPService:
         self._nlp = None  # lazy-loaded
 
     def _get_nlp(self):
+        """Get spaCy NLP model (lazy-loaded)."""
         if self._nlp is None:
             self._nlp = get_spacy_nlp()
         return self._nlp
@@ -91,14 +96,21 @@ class NLPService:
     def detect_language(self, text: str) -> str:
         """
         Detect the language of input text.
-        Returns ISO 639-1 code (e.g., 'en', 'fr').
-        Defaults to 'en' on detection failure.
+        
+        Args:
+            text: Input text to detect
+            
+        Returns:
+            ISO 639-1 code (e.g., 'en', 'fr'). Defaults to 'en' on failure.
         """
         try:
             if len(text.strip()) < 20:
                 return "en"
             return detect(text[:500])  # only need first 500 chars
         except LangDetectException:
+            return "en"
+        except Exception as e:
+            logger.warning(f"Language detection failed: {e}. Defaulting to 'en'")
             return "en"
 
     def lemmatize_and_clean(self, text: str) -> str:
@@ -111,6 +123,12 @@ class NLPService:
         - PRESERVE domain keywords (VPN, timeout, etc.)
 
         Falls back to basic_clean if spaCy is unavailable.
+        
+        Args:
+            text: Cleaned text from basic_clean
+            
+        Returns:
+            Lemmatized and cleaned text string
         """
         nlp = self._get_nlp()
 
@@ -120,14 +138,24 @@ class NLPService:
             filtered = [t for t in tokens if t not in self._stopwords and len(t) > 2]
             return " ".join(filtered)
 
-        doc = nlp(text[:5000])  # cap at 5000 chars for spaCy
+        try:
+            doc = nlp(text[:5000])  # cap at 5000 chars for spaCy
+        except Exception as e:
+            logger.warning(f"spaCy processing failed: {e}. Using fallback.")
+            tokens = text.lower().split()
+            filtered = [t for t in tokens if t not in self._stopwords and len(t) > 2]
+            return " ".join(filtered)
+
         tokens = []
 
         # Domain keywords to PRESERVE (don't remove)
         domain_keywords = set()
-        for category_kw_list in settings.DOMAIN_KEYWORDS.values():
-            for kw in category_kw_list:
-                domain_keywords.add(kw.lower())
+        try:
+            for category_kw_list in settings.DOMAIN_KEYWORDS.values():
+                for kw in category_kw_list:
+                    domain_keywords.add(kw.lower())
+        except Exception as e:
+            logger.warning(f"Could not load domain keywords: {e}")
 
         for token in doc:
             lemma = token.lemma_.lower().strip()
@@ -154,47 +182,71 @@ class NLPService:
 
         return " ".join(tokens)
 
-    def preprocess(self, raw_text: str) -> dict:
+    def preprocess(self, raw_text: str) -> Dict[str, Any]:
         """
         Full preprocessing pipeline for a ticket text.
 
         Args:
-            raw_text: Original user input.
+            raw_text: Original user input (subject + description).
 
         Returns:
             Dict with:
-                cleaned_text: spaCy-processed string (for ML)
-                language: detected ISO 639-1 code
-                features: scalar feature dict (word_count, urgency, etc.)
-                is_english: bool
+                - cleaned_text: spaCy-processed string (for ML)
+                - language: detected ISO 639-1 code
+                - features: scalar feature dict (word_count, urgency, etc.)
+                - is_english: bool
+                - original_cleaned: URL-removed but not lemmatized
         """
-        # Step 1: Basic cleaning (URLs, emails, special chars)
-        step1 = basic_clean(raw_text)
+        try:
+            # Step 1: Basic cleaning (URLs, emails, special chars)
+            step1 = basic_clean(raw_text)
+            
+            if not step1 or len(step1.strip()) == 0:
+                logger.warning("After basic_clean, text is empty. Using raw_text.")
+                step1 = raw_text
 
-        # Step 2: Language detection
-        language = self.detect_language(step1)
+            # Step 2: Language detection
+            language = self.detect_language(step1)
 
-        # Step 3: Extract scalar features from cleaned-but-not-lemmatized text
-        # (we want features based on user's original phrasing, not lemmas)
-        scalar_features = extract_text_features(step1)
+            # Step 3: Extract scalar features from cleaned-but-not-lemmatized text
+            # (we want features based on user's original phrasing, not lemmas)
+            scalar_features = extract_text_features(step1)
 
-        # Step 4: Lemmatize for ML
-        cleaned_text = self.lemmatize_and_clean(step1.lower())
+            # Step 4: Lemmatize for ML
+            cleaned_text = self.lemmatize_and_clean(step1.lower())
 
-        # Ensure non-empty — fall back to basic clean if spaCy shredded everything
-        if len(cleaned_text.split()) < 3:
-            cleaned_text = step1.lower()
+            # Ensure non-empty — fall back to basic clean if spaCy shredded everything
+            if len(cleaned_text.split()) < 3:
+                cleaned_text = step1.lower()
 
-        return {
-            "cleaned_text": cleaned_text,
-            "language": language,
-            "is_english": language == "en",
-            "features": scalar_features,
-            "original_cleaned": step1,  # URL-removed but not lemmatized
-        }
+            return {
+                "cleaned_text": cleaned_text,
+                "language": language,
+                "is_english": language == "en",
+                "features": scalar_features,
+                "original_cleaned": step1,  # URL-removed but not lemmatized
+            }
+        
+        except Exception as e:
+            logger.error(f"NLP preprocessing failed: {e}. Returning basic fallback.")
+            return {
+                "cleaned_text": raw_text.lower(),
+                "language": "en",
+                "is_english": True,
+                "features": extract_text_features(raw_text),
+                "original_cleaned": raw_text,
+            }
 
-    async def preprocess_async(self, raw_text: str) -> dict:
-        """Async wrapper — runs preprocessing in thread pool to avoid blocking."""
+    async def preprocess_async(self, raw_text: str) -> Dict[str, Any]:
+        """
+        Async wrapper — runs preprocessing in thread pool to avoid blocking.
+        
+        Args:
+            raw_text: Original user input
+            
+        Returns:
+            Dict from preprocess()
+        """
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.preprocess, raw_text)
 

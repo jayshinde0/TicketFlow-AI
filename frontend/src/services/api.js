@@ -126,4 +126,11 @@ export const imagesAPI = {
   getUrl: (ticketId, filename) => `/api/tickets/${ticketId}/images/${filename}`,
 };
 
+// ── Journey Tracking ──────────────────────────────────────────────────
+export const journeyAPI = {
+  getByTicket: (ticketId) => api.get(`/api/journey/ticket/${ticketId}`),
+  getByUser:   (userId) => api.get(`/api/journey/user/${userId}`),
+  updatePhase: (journeyId, data) => api.patch(`/api/journey/${journeyId}/phase`, data),
+};
+
 export default api;

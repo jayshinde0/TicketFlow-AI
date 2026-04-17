@@ -10,6 +10,7 @@ import {
   LayoutDashboard, Ticket, ListTodo, BarChart2,
   BookOpen, Settings, LogOut, Zap, Wifi, WifiOff,
   PlusCircle, Users, ShieldAlert, Activity, PlaySquare,
+  ArrowRight,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -67,6 +68,7 @@ export default function Sidebar({ onClose }) {
         <NavItem to="/dashboard"   icon={LayoutDashboard} label="Dashboard" />
         <NavItem to="/submit"      icon={PlusCircle}       label="Submit Ticket" />
         <NavItem to="/my-tickets"  icon={Ticket}           label="My Tickets" />
+        <NavItem to="/journey"     icon={ArrowRight}       label="Ticket Journey" />
 
         {isAgent && (
           <>

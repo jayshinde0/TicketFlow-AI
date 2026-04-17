@@ -23,6 +23,7 @@ const Home        = lazy(() => import("./pages/Home"));
 const AdminQueue  = lazy(() => import("./pages/AdminQueue"));
 const AdminSecurity = lazy(() => import("./pages/AdminSecurity"));
 const AdminSimulation = lazy(() => import("./pages/AdminSimulation"));
+const TicketJourneyDashboard = lazy(() => import("./pages/TicketJourneyDashboard"));
 
 // Route guards
 function PrivateRoute({ children, roles }) {
@@ -60,6 +61,7 @@ export default function App() {
             <Route path="/submit"       element={<SubmitTicket />} />
             <Route path="/tickets/:id"  element={<TicketDetail />} />
             <Route path="/my-tickets"   element={<MyTickets />} />
+            <Route path="/journey"      element={<TicketJourneyDashboard />} />
 
             {/* Agent-only */}
             <Route path="/queue"        element={

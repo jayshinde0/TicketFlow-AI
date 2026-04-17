@@ -47,6 +47,7 @@ from services.nlp_cache import nlp_cache
 from services.security_threat_service import security_threat_service
 from services.escalation_service import escalation_service
 from services.ai_pipeline import security_pipeline
+from services.journey_service import journey_service  # NEW: Journey tracking
 from utils.helpers import generate_ticket_id, utcnow, paginate, tier_to_int
 from utils.text_cleaner import count_urgency_keywords
 from core.config import settings
@@ -552,6 +553,57 @@ async def submit_ticket(
     # Store ticket
     collection = get_tickets_collection()
     await collection.insert_one(ticket_doc)
+
+    # Create journey tracking
+    await journey_service.create_journey(ticket_id=ticket_id, initial_phase="submitted")
+
+    # Add AI processing step
+    await journey_service.add_journey_step(
+        ticket_id=ticket_id,
+        phase="ai_processing",
+        status="completed",
+        notes=f"AI analyzed ticket: {ai_analysis.get('category')} - {ai_analysis.get('priority')}",
+        metadata={
+            "confidence": ai_analysis.get("confidence_score"),
+            "routing": ai_analysis.get("routing_decision"),
+        },
+    )
+
+    # Handle routing decision
+    routing_decision = ai_analysis.get("routing_decision")
+
+    if routing_decision == "AUTO_RESOLVE":
+        # Mark as AI resolved
+        await journey_service.add_journey_step(
+            ticket_id=ticket_id,
+            phase="ai_resolved",
+            status="completed",
+            notes="Ticket automatically resolved by AI",
+        )
+    elif routing_decision in ["SUGGEST_TO_AGENT", "ESCALATE_TO_HUMAN"]:
+        # Assign to human agent
+        department = ai_analysis.get("department", "SOFTWARE")
+        agent = await journey_service.find_available_agent(department)
+
+        if agent:
+            await journey_service.assign_to_agent(
+                ticket_id=ticket_id,
+                agent_email=agent["email"],
+                agent_name=agent["full_name"],
+                department=agent["department"],
+            )
+            logger.info(
+                f"Ticket {ticket_id} assigned to {agent['full_name']} ({department})"
+            )
+        else:
+            logger.warning(f"No available agent found for department {department}")
+            # Add to queue
+            await journey_service.add_journey_step(
+                ticket_id=ticket_id,
+                phase="queued",
+                status="current",
+                notes=f"Waiting for available agent in {department} department",
+            )
 
     # Notify connected agent dashboards
     await notification_service.notify_new_ticket(
