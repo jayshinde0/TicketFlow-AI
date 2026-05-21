@@ -174,6 +174,9 @@ class SecurityAIPipeline:
         description: str,
         ml_category: str = "Software",
         ml_confidence: float = 0.5,
+        # Accept pre-computed results to avoid redundant work
+        precomputed_nlp: Optional[dict] = None,
+        precomputed_sentiment: Optional[dict] = None,
     ) -> Dict[str, Any]:
         """
         Run the full 5-step security pipeline on a ticket.
@@ -212,9 +215,14 @@ class SecurityAIPipeline:
 
         # ── Step 1: Preprocessing ─────────────────────────────────────
         t0 = time.time()
-        nlp_result = await nlp_service.preprocess_async(combined_text)
-        cleaned_text = nlp_result["cleaned_text"]
-        stage_timings["preprocessing_ms"] = int((time.time() - t0) * 1000)
+        if precomputed_nlp is not None:
+            nlp_result = precomputed_nlp
+            cleaned_text = nlp_result["cleaned_text"]
+            stage_timings["preprocessing_ms"] = 0  # skipped — used precomputed
+        else:
+            nlp_result = await nlp_service.preprocess_async(combined_text)
+            cleaned_text = nlp_result["cleaned_text"]
+            stage_timings["preprocessing_ms"] = int((time.time() - t0) * 1000)
 
         # ── Step 2: Embedding ─────────────────────────────────────────
         t0 = time.time()
@@ -240,23 +248,27 @@ class SecurityAIPipeline:
 
         # ── Step 4: Sentiment / Anomaly Check ─────────────────────────
         t0 = time.time()
-        try:
-            sentiment_result = await asyncio.wait_for(
-                sentiment_service.analyze_async(combined_text), timeout=8.0
-            )
-        except Exception:
-            sentiment_result = {
-                "sentiment_label": "NEUTRAL",
-                "sentiment_score": 0.5,
-                "is_frustrated": False,
-            }
+        if precomputed_sentiment is not None:
+            sentiment_result = precomputed_sentiment
+            stage_timings["sentiment_anomaly_ms"] = 0  # skipped — used precomputed
+        else:
+            try:
+                sentiment_result = await asyncio.wait_for(
+                    sentiment_service.analyze_async(combined_text), timeout=8.0
+                )
+            except Exception:
+                sentiment_result = {
+                    "sentiment_label": "NEUTRAL",
+                    "sentiment_score": 0.5,
+                    "is_frustrated": False,
+                }
+            stage_timings["sentiment_anomaly_ms"] = int((time.time() - t0) * 1000)
 
         # Anomaly: very negative + security-adjacent text → suspicious
         anomaly_detected = (
             sentiment_result["sentiment_label"] == "NEGATIVE"
             and sentiment_result["sentiment_score"] > 0.80
         )
-        stage_timings["sentiment_anomaly_ms"] = int((time.time() - t0) * 1000)
 
         # ── Step 5: Security Rule Engine ──────────────────────────────
         t0 = time.time()

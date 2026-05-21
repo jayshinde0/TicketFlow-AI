@@ -84,7 +84,7 @@ async def run_ai_pipeline(
     start_time = time.time()
     stage_timings = {}  # per-stage timing breakdown
     zero_shot_used = False
-    hybrid_override_used = False  # NEW: Track hybrid classifier usage
+    hybrid_override_used = False  # Track hybrid classifier usage
     # Security pipeline result defaults (populated later in pipeline)
     threat_level = "normal"
     threat_type_new = "none"
@@ -96,41 +96,85 @@ async def run_ai_pipeline(
 
     combined_text = f"{subject}. {description}"
 
-    # ─── Agent 0: NLP preprocessing ──────────────────────────────────
-    t0 = time.time()
-    nlp_result = await nlp_cache.get(combined_text)
-    if nlp_result is None:
-        nlp_result = await nlp_service.preprocess_async(combined_text)
-        await nlp_cache.set(combined_text, nlp_result)
-    else:
-        logger.debug(f"NLP cache hit for {ticket_id} — skipped spaCy processing")
-    cleaned_text = nlp_result["cleaned_text"]
-    features = nlp_result["features"]
-    word_count = features["word_count"]
-    urgency_count = features["urgency_keyword_count"]
-    stage_timings["preprocessing_ms"] = int((time.time() - t0) * 1000)
+    # ═══════════════════════════════════════════════════════════════════
+    # WAVE 1: NLP + Sentiment in parallel (both only need combined_text)
+    # ═══════════════════════════════════════════════════════════════════
+    t_wave1 = time.time()
 
-    # ─── Sentiment service ────────────────────────────────────────────
-    t0 = time.time()
-    try:
-        sentiment_result = await asyncio.wait_for(
-            sentiment_service.analyze_async(combined_text), timeout=8.0
-        )
-    except (asyncio.TimeoutError, Exception) as e:
-        logger.warning(f"Sentiment service timeout/error: {e}. Using neutral fallback.")
+    async def _run_nlp():
+        t0 = time.time()
+        result = await nlp_cache.get(combined_text)
+        if result is None:
+            result = await nlp_service.preprocess_async(combined_text)
+            await nlp_cache.set(combined_text, result)
+        else:
+            logger.debug(f"NLP cache hit for {ticket_id} — skipped spaCy processing")
+        stage_timings["preprocessing_ms"] = int((time.time() - t0) * 1000)
+        return result
+
+    async def _run_sentiment():
+        t0 = time.time()
+        try:
+            result = await asyncio.wait_for(
+                sentiment_service.analyze_async(combined_text), timeout=8.0
+            )
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.warning(f"Sentiment service timeout/error: {e}. Using neutral fallback.")
+            result = {
+                "sentiment_label": "NEUTRAL",
+                "sentiment_score": 0.5,
+                "is_frustrated": False,
+            }
+        stage_timings["sentiment_ms"] = int((time.time() - t0) * 1000)
+        return result
+
+    nlp_result, sentiment_result = await asyncio.gather(
+        _run_nlp(),
+        _run_sentiment(),
+        return_exceptions=True,
+    )
+
+    # Handle exceptions from gather
+    if isinstance(nlp_result, Exception):
+        logger.warning(f"NLP failed: {nlp_result}. Using fallback.")
+        nlp_result = {
+            "cleaned_text": combined_text.lower(),
+            "language": "en",
+            "is_english": True,
+            "features": {
+                "word_count": len(combined_text.split()),
+                "urgency_keyword_count": 0,
+            },
+            "original_cleaned": combined_text,
+        }
+        stage_timings["preprocessing_ms"] = 0
+
+    if isinstance(sentiment_result, Exception):
+        logger.warning(f"Sentiment failed: {sentiment_result}. Using neutral fallback.")
         sentiment_result = {
             "sentiment_label": "NEUTRAL",
             "sentiment_score": 0.5,
             "is_frustrated": False,
         }
+        stage_timings["sentiment_ms"] = 0
+
+    stage_timings["wave1_ms"] = int((time.time() - t_wave1) * 1000)
+
+    # Unpack NLP
+    cleaned_text = nlp_result["cleaned_text"]
+    features = nlp_result["features"]
+    word_count = features["word_count"]
+    urgency_count = features["urgency_keyword_count"]
+
+    # Unpack sentiment
     sentiment_label = sentiment_result["sentiment_label"]
     sentiment_score = sentiment_result["sentiment_score"]
     is_frustrated = sentiment_result["is_frustrated"]
-    stage_timings["sentiment_ms"] = int((time.time() - t0) * 1000)
 
-    # ─── Agent 1: Classify category + priority (HYBRID CLASSIFIER) ────
-    t0 = time.time()
-    # NEW: Use hybrid classifier (ML + keyword fallback)
+    # ═══════════════════════════════════════════════════════════════════
+    # WAVE 2: Classification (depends on cleaned_text + sentiment_score)
+    # ═══════════════════════════════════════════════════════════════════
+    t_wave2 = time.time()
     classify_result = await enhanced_hybrid_classifier.classify(
         cleaned_text=cleaned_text,
         user_tier=user_tier,
@@ -145,10 +189,10 @@ async def run_ai_pipeline(
     category_probs = classify_result["category_probabilities"]
     priority = classify_result["priority"]
     priority_confidence = classify_result["priority_confidence"]
-    hybrid_override_used = classify_result.get("hybrid_override", False)  # NEW
-    
-    stage_timings["classification_ms"] = int((time.time() - t0) * 1000)
-    
+    hybrid_override_used = classify_result.get("hybrid_override", False)
+
+    stage_timings["classification_ms"] = int((time.time() - t_wave2) * 1000)
+
     # ─── Zero-shot fallback for low confidence (<0.55) ────────────────
     if model_confidence < 0.55:
         logger.info(
@@ -170,32 +214,163 @@ async def run_ai_pipeline(
         except Exception as e:
             logger.warning(f"Zero-shot fallback failed (non-fatal): {e}")
 
-    # ─── Agent 2: Retrieve similar tickets ────────────────────────────
-    t0 = time.time()
-    try:
-        retrieval_result = await asyncio.wait_for(
-            retrieval_service.find_similar_tickets(
-                text=cleaned_text,
-                category=category,
-                top_k=3,
-            ),
-            timeout=15.0,  # first run downloads embedding model
+    stage_timings["wave2_ms"] = int((time.time() - t_wave2) * 1000)
+
+    # ═══════════════════════════════════════════════════════════════════
+    # WAVE 3: Retrieval + Security + LIME + Duplicate + Legacy threat
+    #         (all independent, run concurrently)
+    # ═══════════════════════════════════════════════════════════════════
+    t_wave3 = time.time()
+
+    async def _run_retrieval():
+        t0 = time.time()
+        try:
+            result = await asyncio.wait_for(
+                retrieval_service.find_similar_tickets(
+                    text=cleaned_text, category=category, top_k=3,
+                ),
+                timeout=15.0,
+            )
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.warning(f"Retrieval service timeout/error: {e}. Using empty fallback.")
+            result = {
+                "similar_tickets": [],
+                "top_similarity_score": 0.0,
+                "embedding": None,
+                "knowledge_base_size": 0,
+            }
+        stage_timings["retrieval_ms"] = int((time.time() - t0) * 1000)
+        return result
+
+    async def _run_security():
+        t0 = time.time()
+        result = await security_pipeline.run(
+            ticket_id=ticket_id,
+            subject=subject,
+            description=description,
+            ml_category=category,
+            ml_confidence=model_confidence,
+            precomputed_nlp=nlp_result,
+            precomputed_sentiment=sentiment_result,
         )
-    except (asyncio.TimeoutError, Exception) as e:
-        logger.warning(f"Retrieval service timeout/error: {e}. Using empty fallback.")
+        stage_timings["security_pipeline_ms"] = int((time.time() - t0) * 1000)
+        return result
+
+    async def _run_lime():
+        t0 = time.time()
+        try:
+            result = await explainability_service.explain_async(
+                cleaned_text=cleaned_text,
+                classifier_service=classifier_service,
+                num_features=8,
+                num_samples=200,
+            )
+        except Exception as e:
+            logger.debug(f"LIME explanation skipped: {e}")
+            result = None
+        stage_timings["lime_explainability_ms"] = int((time.time() - t0) * 1000)
+        return result
+
+    async def _run_duplicate():
+        t0 = time.time()
+        result = await duplicate_service.check_duplicate(
+            text=cleaned_text,
+            new_ticket_id=ticket_id,
+            category=category,
+        )
+        stage_timings["duplicate_detection_ms"] = int((time.time() - t0) * 1000)
+        return result
+
+    async def _run_legacy_threat():
+        t0 = time.time()
+        result = await security_threat_service.analyze_threat(
+            text=combined_text,
+            category=category,
+        )
+        stage_timings["legacy_threat_ms"] = int((time.time() - t0) * 1000)
+        return result
+
+    (
+        retrieval_result,
+        sec_pipeline_result,
+        lime_result,
+        duplicate_result,
+        threat_result,
+    ) = await asyncio.gather(
+        _run_retrieval(),
+        _run_security(),
+        _run_lime(),
+        _run_duplicate(),
+        _run_legacy_threat(),
+        return_exceptions=True,
+    )
+
+    # Handle exceptions from wave 3
+    if isinstance(retrieval_result, Exception):
+        logger.warning(f"Retrieval failed: {retrieval_result}")
         retrieval_result = {
             "similar_tickets": [],
             "top_similarity_score": 0.0,
             "embedding": None,
             "knowledge_base_size": 0,
         }
+
+    if isinstance(sec_pipeline_result, Exception):
+        logger.warning(f"Security pipeline failed: {sec_pipeline_result}")
+        sec_pipeline_result = {
+            "threat_level": "normal",
+            "threat_type": "none",
+            "confidence_score": 0.0,
+            "triggered_rules": [],
+            "detection_reason": "",
+            "disable_auto_resolve": False,
+            "safe_response": None,
+            "auto_escalate": False,
+        }
+
+    if isinstance(lime_result, Exception):
+        logger.debug(f"LIME failed in gather: {lime_result}")
+        lime_result = None
+
+    if isinstance(duplicate_result, Exception):
+        logger.warning(f"Duplicate check failed: {duplicate_result}")
+        duplicate_result = {
+            "is_duplicate": False,
+            "is_possible_duplicate": False,
+            "parent_ticket_id": None,
+            "similarity_score": 0.0,
+        }
+
+    if isinstance(threat_result, Exception):
+        logger.warning(f"Legacy threat analysis failed: {threat_result}")
+        threat_result = {
+            "threat_detected": False,
+            "severity": "none",
+        }
+
+    stage_timings["wave3_ms"] = int((time.time() - t_wave3) * 1000)
+    # backward compat: combined threat timing
+    stage_timings["threat_analysis_ms"] = (
+        stage_timings.get("security_pipeline_ms", 0)
+        + stage_timings.get("legacy_threat_ms", 0)
+    )
+
+    # Unpack retrieval
     similar_tickets = retrieval_result["similar_tickets"]
     top_similarity = retrieval_result["top_similarity_score"]
     ticket_embedding = retrieval_result.get("embedding")
-    stage_timings["retrieval_ms"] = int((time.time() - t0) * 1000)
 
-    # ─── SLA prediction ───────────────────────────────────────────────
-    t0 = time.time()
+    # Merge security: new pipeline takes precedence for threat_level/type
+    threat_level = sec_pipeline_result["threat_level"]
+    threat_type_new = sec_pipeline_result["threat_type"]
+    threat_confidence = sec_pipeline_result["confidence_score"]
+    triggered_rules = sec_pipeline_result["triggered_rules"]
+    detection_reason = sec_pipeline_result["detection_reason"]
+
+    # ═══════════════════════════════════════════════════════════════════
+    # WAVE 4: SLA prediction (needs similar_tickets from wave 3)
+    # ═══════════════════════════════════════════════════════════════════
+    t_wave4 = time.time()
     similar_avg_resolution = (
         sum(t.get("resolution_time_hours", 2.0) for t in similar_tickets)
         / len(similar_tickets)
@@ -214,9 +389,15 @@ async def run_ai_pipeline(
         current_queue_length=10,  # would be real-time queue in production
         similar_ticket_avg_hours=similar_avg_resolution,
     )
-    stage_timings["sla_prediction_ms"] = int((time.time() - t0) * 1000)
+    stage_timings["sla_prediction_ms"] = int((time.time() - t_wave4) * 1000)
+    stage_timings["wave4_ms"] = stage_timings["sla_prediction_ms"]
 
-    # ─── Time sensitivity classification ───────────────────────────────
+    # ═══════════════════════════════════════════════════════════════════
+    # WAVE 5: Time sensitivity + HITL routing (needs sla_breach_prob)
+    # ═══════════════════════════════════════════════════════════════════
+    t_wave5 = time.time()
+
+    # Time sensitivity classification
     time_sensitivity = time_sensitivity_service.classify(
         category=category,
         priority=priority,
@@ -224,11 +405,10 @@ async def run_ai_pipeline(
         sla_breach_probability=sla_breach_prob,
     )
 
-    # ─── Department mapping ───────────────────────────────────────────
+    # Department mapping
     department = settings.CATEGORY_TO_DEPARTMENT.get(category, "SOFTWARE")
 
-    # ─── Agent 3: HITL routing decision ────────────────────────────────
-    t0 = time.time()
+    # HITL routing decision
     hitl_result = hitl_service.route(
         category=category,
         model_confidence=model_confidence,
@@ -245,10 +425,21 @@ async def run_ai_pipeline(
     routing_decision = hitl_result["routing_decision"]
     confidence_score = hitl_result["confidence_score"]
     final_priority = hitl_result["priority"]
-    stage_timings["hitl_routing_ms"] = int((time.time() - t0) * 1000)
+    stage_timings["hitl_routing_ms"] = int((time.time() - t_wave5) * 1000)
+    stage_timings["wave5_ms"] = stage_timings["hitl_routing_ms"]
 
-    # ─── Agent 4: LLM response generation ─────────────────────────────
-    t0 = time.time()
+    # ── Apply security overrides to routing (must run after wave 3 + wave 5) ──
+    if sec_pipeline_result.get("disable_auto_resolve"):
+        if routing_decision == "AUTO_RESOLVE":
+            routing_decision = "ESCALATE_TO_HUMAN"
+
+    if threat_level == "attack":
+        final_priority = "Critical"
+
+    # ═══════════════════════════════════════════════════════════════════
+    # WAVE 6: LLM generation (needs routing_decision + similar_tickets)
+    # ═══════════════════════════════════════════════════════════════════
+    t_wave6 = time.time()
     top_solution = (
         similar_tickets[0]["solution"]
         if similar_tickets
@@ -273,10 +464,13 @@ async def run_ai_pipeline(
             "model_used": "fallback",
             "generation_time_ms": 0,
         }
-    stage_timings["llm_generation_ms"] = int((time.time() - t0) * 1000)
+    stage_timings["llm_generation_ms"] = int((time.time() - t_wave6) * 1000)
+    stage_timings["wave6_ms"] = stage_timings["llm_generation_ms"]
 
-    # ─── Safety guardrails check ─────────────────────────────────
-    t0 = time.time()
+    # ═══════════════════════════════════════════════════════════════════
+    # WAVE 7: Safety guardrails (needs generated_response + routing_decision)
+    # ═══════════════════════════════════════════════════════════════════
+    t_wave7 = time.time()
     safety_result = {
         "is_safe": True,
         "violations": [],
@@ -298,45 +492,16 @@ async def run_ai_pipeline(
             logger.info(
                 f"Response sanitized for {ticket_id}: minor violations redacted"
             )
-    stage_timings["safety_check_ms"] = int((time.time() - t0) * 1000)
+    stage_timings["safety_check_ms"] = int((time.time() - t_wave7) * 1000)
+    stage_timings["wave7_ms"] = stage_timings["safety_check_ms"]
 
-    # ─── Security threat analysis (enhanced pipeline) ──────────────
-    t0 = time.time()
-    # Run legacy threat service (Ollama-based) in parallel with new rule engine pipeline
-    threat_result = await security_threat_service.analyze_threat(
-        text=combined_text,
-        category=category,
-    )
+    # Override generated response with safe response for security threats
+    if sec_pipeline_result.get("safe_response") and sec_pipeline_result.get(
+        "disable_auto_resolve"
+    ):
+        llm_result["generated_response"] = sec_pipeline_result["safe_response"]
 
-    # Run new AI security pipeline (rule engine + ML + ChromaDB)
-    sec_pipeline_result = await security_pipeline.run(
-        ticket_id=ticket_id,
-        subject=subject,
-        description=description,
-        ml_category=category,
-        ml_confidence=model_confidence,
-    )
-
-    # Merge: new pipeline takes precedence for threat_level/type
-    threat_level = sec_pipeline_result["threat_level"]
-    threat_type_new = sec_pipeline_result["threat_type"]
-    threat_confidence = sec_pipeline_result["confidence_score"]
-    triggered_rules = sec_pipeline_result["triggered_rules"]
-    detection_reason = sec_pipeline_result["detection_reason"]
-
-    # Override routing for attacks/suspicious
-    if sec_pipeline_result["disable_auto_resolve"]:
-        if routing_decision == "AUTO_RESOLVE":
-            routing_decision = "ESCALATE_TO_HUMAN"
-        # Override generated response with safe response
-        if sec_pipeline_result.get("safe_response"):
-            llm_result["generated_response"] = sec_pipeline_result["safe_response"]
-
-    # Override priority for attacks
-    if threat_level == "attack":
-        final_priority = "Critical"
-
-    # Legacy escalation for critical/high threats
+    # Legacy escalation for critical/high threats (post-routing)
     if threat_result.get("threat_detected") and threat_result.get("severity") in (
         "critical",
         "high",
@@ -361,38 +526,10 @@ async def run_ai_pipeline(
             },
         )
 
-    stage_timings["threat_analysis_ms"] = int((time.time() - t0) * 1000)
-
-    # ─── LIME explainability (async, won't block pipeline) ────────────
-    t0 = time.time()
-    lime_result = None
-    try:
-        lime_result = await explainability_service.explain_async(
-            cleaned_text=cleaned_text,
-            classifier_service=classifier_service,
-            num_features=8,
-            num_samples=200,  # reduced samples for speed
-        )
-    except Exception as e:
-        logger.debug(f"LIME explanation skipped: {e}")
-    stage_timings["lime_explainability_ms"] = int((time.time() - t0) * 1000)
-
-    # ─── Duplicate detection ──────────────────────────────────────────
-    t0 = time.time()
-    duplicate_result = await duplicate_service.check_duplicate(
-        text=cleaned_text,
-        new_ticket_id=ticket_id,
-        category=category,
-    )
-    stage_timings["duplicate_detection_ms"] = int((time.time() - t0) * 1000)
-
     # ─── SLA estimation ───────────────────────────────────────────────
-    t0 = time.time()
     sla_info = sla_service.get_sla_info(category, final_priority, now)
-    estimated_hours = (
-        sla_service._get_predictor() and sla_service.predict_breach_probability
-    )  # use model if available
-    stage_timings["sla_estimation_ms"] = int((time.time() - t0) * 1000)
+    estimated_hours = sla_info.get("sla_minutes", 120) / 60 * 0.6
+    stage_timings["sla_estimation_ms"] = 0  # sync, instant
 
     # ─── Build AI analysis doc ─────────────────────────────────────────
     processing_time_ms = int((time.time() - start_time) * 1000)
@@ -421,7 +558,7 @@ async def run_ai_pipeline(
         "sla_override": hitl_result.get("sla_override", False),
         "security_override": hitl_result.get("security_override", False),
         "sla_breach_probability": sla_breach_prob,
-        "estimated_resolution_hours": sla_info.get("sla_minutes", 120) / 60 * 0.6,
+        "estimated_resolution_hours": estimated_hours,
         "duplicate_of": duplicate_result.get("parent_ticket_id"),
         "is_possible_duplicate": duplicate_result.get("is_possible_duplicate", False),
         "similar_tickets": similar_tickets,
@@ -445,7 +582,7 @@ async def run_ai_pipeline(
         },
         "stage_timings": stage_timings,
         "zero_shot_used": zero_shot_used,
-        "hybrid_override_used": hybrid_override_used,  # NEW: Track hybrid usage
+        "hybrid_override_used": hybrid_override_used,
         # ── Security pipeline fields ────────────────────────────────
         "threat_level": threat_level,
         "threat_type": threat_type_new,
@@ -454,45 +591,58 @@ async def run_ai_pipeline(
         "detection_reason": detection_reason,
     }
 
-    # ─── Audit logging ────────────────────────────────────────────────
+    # ═══════════════════════════════════════════════════════════════════
+    # WAVE 8: Audit logging (fire-and-forget — does not affect response)
+    # ═══════════════════════════════════════════════════════════════════
     retrieved_ids = [t["ticket_id"] for t in similar_tickets]
-    await audit_service.log_pipeline_run(
-        ticket_id=ticket_id,
-        model_version=model_version,
-        predicted_category=category,
-        category_probabilities=category_probs,
-        model_confidence=model_confidence,
-        predicted_priority=final_priority,
-        priority_confidence=priority_confidence,
-        top_similarity_score=top_similarity,
-        retrieved_ticket_ids=retrieved_ids,
-        composite_confidence=confidence_score,
-        confidence_breakdown=hitl_result.get("confidence_breakdown"),
-        routing_decision=routing_decision,
-        sla_override=hitl_result.get("sla_override", False),
-        security_override=hitl_result.get("security_override", False),
-        sla_breach_probability=sla_breach_prob,
-        sentiment_label=sentiment_label,
-        sentiment_score=sentiment_score,
-        generated_response_preview=llm_result.get("generated_response"),
-        hallucination_detected=llm_result.get("hallucination_detected", False),
-        fallback_used=llm_result.get("fallback_used", False),
-        generation_time_ms=llm_result.get("generation_time_ms"),
-        lime_top_features=(
-            lime_result.get("top_positive_features") if lime_result else None
-        ),
-        duplicate_check_performed=True,
-        is_duplicate=duplicate_result.get("is_duplicate", False),
-        duplicate_of=duplicate_result.get("parent_ticket_id"),
-        processing_time_ms=processing_time_ms,
-    )
+
+    async def _audit_log():
+        try:
+            await audit_service.log_pipeline_run(
+                ticket_id=ticket_id,
+                model_version=model_version,
+                predicted_category=category,
+                category_probabilities=category_probs,
+                model_confidence=model_confidence,
+                predicted_priority=final_priority,
+                priority_confidence=priority_confidence,
+                top_similarity_score=top_similarity,
+                retrieved_ticket_ids=retrieved_ids,
+                composite_confidence=confidence_score,
+                confidence_breakdown=hitl_result.get("confidence_breakdown"),
+                routing_decision=routing_decision,
+                sla_override=hitl_result.get("sla_override", False),
+                security_override=hitl_result.get("security_override", False),
+                sla_breach_probability=sla_breach_prob,
+                sentiment_label=sentiment_label,
+                sentiment_score=sentiment_score,
+                generated_response_preview=llm_result.get("generated_response"),
+                hallucination_detected=llm_result.get("hallucination_detected", False),
+                fallback_used=llm_result.get("fallback_used", False),
+                generation_time_ms=llm_result.get("generation_time_ms"),
+                lime_top_features=(
+                    lime_result.get("top_positive_features") if lime_result else None
+                ),
+                duplicate_check_performed=True,
+                is_duplicate=duplicate_result.get("is_duplicate", False),
+                duplicate_of=duplicate_result.get("parent_ticket_id"),
+                processing_time_ms=processing_time_ms,
+            )
+        except Exception as e:
+            logger.warning(f"Audit logging failed (non-fatal): {e}")
+
+    asyncio.create_task(_audit_log())
 
     logger.info(
         f"AI pipeline complete for {ticket_id}: "
         f"category={category}, routing={routing_decision}, "
         f"confidence={confidence_score:.3f}, "
         f"hybrid_override={hybrid_override_used}, "
-        f"time={processing_time_ms}ms"
+        f"time={processing_time_ms}ms, "
+        f"waves=[w1:{stage_timings.get('wave1_ms', 0)}ms, "
+        f"w2:{stage_timings.get('wave2_ms', 0)}ms, "
+        f"w3:{stage_timings.get('wave3_ms', 0)}ms, "
+        f"w6:{stage_timings.get('wave6_ms', 0)}ms]"
     )
 
     return ai_analysis
