@@ -64,19 +64,17 @@ async def run_ai_pipeline(
     now: Optional[datetime] = None,
 ) -> dict:
     """
-    Orchestrated 5-agent AI pipeline for ticket processing.
+    Wave-based concurrent AI pipeline for ticket processing.
 
-    Agents run in sequence:
-    1. NLP preprocessing
-    2. Sentiment analysis
-    3. Classifier (category + priority) - HYBRID (ML + Keywords)
-    4. Embeddings + Retrieval (similar tickets)
-    5. SLA prediction
-    6. HITL routing decision (confidence + overrides)
-    7. LLM response generation
-    8. LIME explainability
-    9. Duplicate detection
-    10. Audit logging
+    Execution waves:
+    - Wave 1 (parallel): NLP preprocessing + Sentiment analysis
+    - Wave 2 (sequential): Hybrid classification + optional zero-shot fallback
+    - Wave 3 (parallel): Retrieval + Security pipeline + LIME + Duplicate + Legacy threat
+    - Wave 4 (sequential): SLA prediction
+    - Wave 5 (sequential): Time sensitivity + HITL routing
+    - Wave 6 (sequential): LLM response generation
+    - Wave 7 (sequential): Safety guardrails
+    - Wave 8 (fire-and-forget): Audit logging
 
     Returns:
         Complete AI analysis dict ready for MongoDB storage.
@@ -192,6 +190,7 @@ async def run_ai_pipeline(
     hybrid_override_used = classify_result.get("hybrid_override", False)
 
     stage_timings["classification_ms"] = int((time.time() - t_wave2) * 1000)
+    stage_timings["wave2_ms"] = stage_timings["classification_ms"]
 
     # ─── Zero-shot fallback for low confidence (<0.55) ────────────────
     if model_confidence < 0.55:
@@ -214,7 +213,8 @@ async def run_ai_pipeline(
         except Exception as e:
             logger.warning(f"Zero-shot fallback failed (non-fatal): {e}")
 
-    stage_timings["wave2_ms"] = int((time.time() - t_wave2) * 1000)
+    # record zero-shot time separately if it ran
+    stage_timings["zero_shot_ms"] = int((time.time() - t_wave2) * 1000) - stage_timings["wave2_ms"]
 
     # ═══════════════════════════════════════════════════════════════════
     # WAVE 3: Retrieval + Security + LIME + Duplicate + Legacy threat
