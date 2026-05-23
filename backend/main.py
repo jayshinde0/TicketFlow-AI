@@ -23,6 +23,7 @@ from core.database import db_manager as database_manager, create_indexes
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle."""
     logger.info("═══ TicketFlow AI Backend Starting ═══")
+    logger.info(f"🌐 CORS allowed origins: {settings.CORS_ORIGINS}")
 
     # 1. Connect MongoDB
     await database_manager.connect()

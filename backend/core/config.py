@@ -4,9 +4,10 @@ Uses pydantic-settings BaseSettings for automatic env variable binding.
 """
 
 from pydantic_settings import BaseSettings
-from pydantic import Field
-from typing import Dict, List
+from pydantic import Field, field_validator
+from typing import Dict, List, Union
 import os
+import json
 
 
 class Settings(BaseSettings):
@@ -14,7 +15,19 @@ class Settings(BaseSettings):
     APP_NAME: str = "TicketFlow AI"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = Field(default=False, env="DEBUG")
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    CORS_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://localhost:5173"]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+        """Parse CORS_ORIGINS whether it arrives as a JSON array string or a list."""
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("["):
+                return json.loads(v)
+            # comma-separated fallback
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
     # ─── MongoDB ───────────────────────────────────────────────────────
     MONGODB_URL: str = Field(default="mongodb://localhost:27017", env="MONGODB_URL")
