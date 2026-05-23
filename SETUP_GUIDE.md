@@ -1,5 +1,8 @@
 # TicketFlow AI - Complete Setup Guide
-
+Backend - 
+uvicorn main:app --reload --port 8000
+chromadb -
+ chroma run --host localhost --port 8001 --path ./chroma_data
 ## 🚀 Quick Start (5 Minutes)
 
 ### Prerequisites

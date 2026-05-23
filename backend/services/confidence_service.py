@@ -49,8 +49,8 @@ class ConfidenceService:
         Text quality very poor → reduce confidence by 0.20
 
     Routing based on confidence:
-        >= 0.85 → AUTO_RESOLVE
-        >= 0.70 → SUGGEST_TO_AGENT
+        >= 0.70 → AUTO_RESOLVE
+        >= 0.45 → SUGGEST_TO_AGENT
         >= 0.50 → ESCALATE_TO_AGENT
         <  0.50 → ESCALATE_TO_HUMAN
     """
@@ -406,9 +406,9 @@ class ConfidenceService:
             }
 
         # ─── Step 8: Standard routing based on calibrated confidence ────
-        if confidence >= 0.85:
+        if confidence >= settings.CONFIDENCE_HIGH_THRESHOLD:
             routing = "AUTO_RESOLVE"
-        elif confidence >= 0.70:
+        elif confidence >= settings.CONFIDENCE_LOW_THRESHOLD:
             routing = "SUGGEST_TO_AGENT"
         elif confidence >= 0.50:
             routing = "ESCALATE_TO_AGENT"
@@ -416,13 +416,15 @@ class ConfidenceService:
             routing = "ESCALATE_TO_HUMAN"
         
         logger.debug(
-            f"Routing decision: confidence={confidence:.3f} → {routing}"
+            f"Routing decision: confidence={confidence:.3f} → {routing} "
+            f"(thresholds: AUTO={settings.CONFIDENCE_HIGH_THRESHOLD}, "
+            f"SUGGEST={settings.CONFIDENCE_LOW_THRESHOLD})"
         )
 
         # ─── Step 9: Enterprise tier upgrade ─────────────────────────
         enterprise_upgrade = False
         if user_tier == "Enterprise" and routing == "SUGGEST_TO_AGENT":
-            if confidence >= 0.60:
+            if confidence >= 0.55:  # Lower threshold for Enterprise (55% vs 70%)
                 routing = "AUTO_RESOLVE"
                 enterprise_upgrade = True
                 logger.debug("Enterprise tier upgrade: SUGGEST_TO_AGENT → AUTO_RESOLVE")

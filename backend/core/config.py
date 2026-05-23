@@ -102,8 +102,8 @@ class Settings(BaseSettings):
     CHROMA_ARTICLES_COLLECTION: str = "knowledge_articles"
 
     # ─── ML / AI Thresholds ───────────────────────────────────────────
-    CONFIDENCE_HIGH_THRESHOLD: float = 0.85  # >= this → AUTO_RESOLVE
-    CONFIDENCE_LOW_THRESHOLD: float = 0.60  # >= this → SUGGEST_TO_AGENT
+    CONFIDENCE_HIGH_THRESHOLD: float = 0.70  # >= this → AUTO_RESOLVE
+    CONFIDENCE_LOW_THRESHOLD: float = 0.45  # >= this → SUGGEST_TO_AGENT
     SLA_BREACH_THRESHOLD: float = 0.75  # SLA override trigger
     HALLUCINATION_SIM_THRESHOLD: float = 0.55  # min cosine sim for LLM response
     FEEDBACK_RETRAIN_THRESHOLD: int = 200  # feedback count before retraining
