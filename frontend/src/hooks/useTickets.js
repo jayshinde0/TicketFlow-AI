@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { toast } from 'react-hot-toast';
+import { extractErrorMessage } from '../utils/errorHandler';
 
 export const useTickets = (filters = {}) => {
   const [tickets, setTickets] = useState([]);
@@ -76,8 +77,9 @@ export const useTickets = (filters = {}) => {
       return response.data;
     } catch (err) {
       console.error('Failed to submit ticket:', err);
-      setError(err.response?.data?.detail || 'Failed to submit ticket');
-      toast.error('Failed to submit ticket');
+      const errorMessage = extractErrorMessage(err, 'Failed to submit ticket');
+      setError(errorMessage);
+      toast.error(errorMessage);
       throw err;
     } finally {
       setLoading(false);

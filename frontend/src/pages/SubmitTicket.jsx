@@ -8,6 +8,7 @@ import { RoutingBadge, PriorityBadge, ConfidenceBar } from "../components/ui/Loa
 import ImageUpload from "../components/ImageUpload";
 import toast from "react-hot-toast";
 import { Send, CheckCircle2, Brain, Zap, Clock, AlertTriangle } from "lucide-react";
+import { extractErrorMessage } from "../utils/errorHandler";
 
 const CATEGORIES_HINT = [
   "Network / VPN issue", "Login / Password reset", "Software crash or bug",
@@ -51,7 +52,9 @@ export default function SubmitTicket() {
         }
       }
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Submission failed. Is the backend running?");
+      console.error("Submission error:", err);
+      const errorMessage = extractErrorMessage(err, "Submission failed. Is the backend running?");
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

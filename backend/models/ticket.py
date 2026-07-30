@@ -267,6 +267,15 @@ class TicketCreate(BaseModel):
     def description_not_blank(cls, v: str) -> str:
         if not v.strip():
             raise ValueError("Description cannot be blank")
+        
+        # Import here to avoid circular dependency
+        from services.text_validation_service import text_validation_service
+        
+        # Validate meaningful content
+        is_valid, error_msg = text_validation_service.validate(v, min_words=3)
+        if not is_valid:
+            raise ValueError(error_msg)
+        
         return v.strip()
 
 

@@ -48,6 +48,7 @@ from services.security_threat_service import security_threat_service
 from services.escalation_service import escalation_service
 from services.ai_pipeline import security_pipeline
 from services.journey_service import journey_service  # NEW: Journey tracking
+from services.text_validation_service import text_validation_service  # NEW: Gibberish detection
 from utils.helpers import generate_ticket_id, utcnow, paginate, tier_to_int
 from utils.text_cleaner import count_urgency_keywords
 from core.config import settings
@@ -67,6 +68,7 @@ async def run_ai_pipeline(
     Wave-based concurrent AI pipeline for ticket processing.
 
     Execution waves:
+    - Wave 0 (validation): Text quality and gibberish detection
     - Wave 1 (parallel): NLP preprocessing + Sentiment analysis
     - Wave 2 (sequential): Hybrid classification + optional zero-shot fallback
     - Wave 3 (parallel): Retrieval + Security pipeline + LIME + Duplicate + Legacy threat
@@ -93,6 +95,21 @@ async def run_ai_pipeline(
         now = utcnow()
 
     combined_text = f"{subject}. {description}"
+
+    # ═══════════════════════════════════════════════════════════════════
+    # WAVE 0: Input Validation (gibberish detection)
+    # ═══════════════════════════════════════════════════════════════════
+    is_valid, validation_error = text_validation_service.validate(
+        combined_text, min_words=3
+    )
+    if not is_valid:
+        logger.warning(
+            f"Ticket {ticket_id} failed validation: {validation_error}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=validation_error
+        )
 
     # ═══════════════════════════════════════════════════════════════════
     # WAVE 1: NLP + Sentiment in parallel (both only need combined_text)

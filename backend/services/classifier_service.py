@@ -77,6 +77,9 @@ class ClassifierService:
         """
         Simple keyword-based category fallback when ML models are unavailable.
         Used during development before training is complete.
+        
+        Returns the category with the highest keyword match score,
+        or "ServiceRequest" if no strong matches are found (neutral default).
         """
         text_lower = text.lower()
         keyword_map = {
@@ -89,6 +92,9 @@ class ClassifierService:
                 "firewall",
                 "network",
                 "connection",
+                "router",
+                "ethernet",
+                "bandwidth",
             ],
             "Auth": [
                 "password",
@@ -99,6 +105,8 @@ class ClassifierService:
                 "token",
                 "sso",
                 "authentication",
+                "signin",
+                "credentials",
             ],
             "Security": [
                 "phishing",
@@ -108,16 +116,21 @@ class ClassifierService:
                 "breach",
                 "hack",
                 "suspicious",
+                "threat",
+                "security",
+                "unauthorized",
             ],
             "Database": [
                 "database",
                 "sql",
                 "query",
-                "server",
-                "disk",
-                "backup",
+                "table",
                 "mysql",
                 "postgres",
+                "oracle",
+                "mongodb",
+                "redis",
+                "connection pool",
             ],
             "Billing": [
                 "invoice",
@@ -126,6 +139,8 @@ class ClassifierService:
                 "refund",
                 "subscription",
                 "billing",
+                "credit card",
+                "transaction",
             ],
             "Software": [
                 "crash",
@@ -135,6 +150,8 @@ class ClassifierService:
                 "freeze",
                 "exception",
                 "bug",
+                "application",
+                "program",
             ],
             "Hardware": [
                 "laptop",
@@ -144,6 +161,8 @@ class ClassifierService:
                 "battery",
                 "usb",
                 "monitor",
+                "mouse",
+                "disk",
             ],
             "Email": [
                 "email",
@@ -153,6 +172,8 @@ class ClassifierService:
                 "mailbox",
                 "smtp",
                 "calendar",
+                "outlook",
+                "gmail",
             ],
             "Access": [
                 "access",
@@ -162,6 +183,7 @@ class ClassifierService:
                 "role",
                 "admin",
                 "restricted",
+                "denied",
             ],
             "ServiceRequest": [
                 "request",
@@ -170,14 +192,29 @@ class ClassifierService:
                 "provision",
                 "create",
                 "onboarding",
+                "need",
+                "would like",
             ],
         }
         scores = {}
         for category, keywords in keyword_map.items():
-            scores[category] = sum(1 for kw in keywords if kw in text_lower)
+            # Count keyword occurrences (not just presence)
+            scores[category] = sum(text_lower.count(kw) for kw in keywords)
 
+        # Find the best match
         best = max(scores, key=scores.get)
-        return best if scores[best] > 0 else "Software"
+        best_score = scores[best]
+        
+        # If no strong match (score < 1), default to ServiceRequest (neutral)
+        # This prevents random classification when no keywords match
+        if best_score < 1:
+            logger.debug(
+                f"No strong keyword match found (best={best}, score={best_score}). "
+                "Defaulting to ServiceRequest."
+            )
+            return "ServiceRequest"
+        
+        return best
 
     def classify(
         self,
