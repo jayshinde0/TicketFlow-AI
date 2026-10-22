@@ -24,6 +24,7 @@ const AdminQueue  = lazy(() => import("./pages/AdminQueue"));
 const AdminSecurity = lazy(() => import("./pages/AdminSecurity"));
 const AdminSimulation = lazy(() => import("./pages/AdminSimulation"));
 const TicketJourneyDashboard = lazy(() => import("./pages/TicketJourneyDashboard"));
+const ModelEvaluation = lazy(() => import("./pages/ModelEvaluation"));
 
 // Route guards
 function PrivateRoute({ children, roles }) {
@@ -50,6 +51,7 @@ export default function App() {
 
           {/* Public landing page */}
           <Route path="/" element={<Home />} />
+          <Route path="/model-evaluation" element={<ModelEvaluation />} />
 
           {/* Public routes */}
           <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />

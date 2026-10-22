@@ -1,0 +1,7 @@
+Task,Model,Accuracy,Precision,Recall,F1_Score,Training_Time_s
+Category,Logistic Regression,1.0,1.0,1.0,1.0,1.754
+Category,Random Forest,0.9927,0.9929,0.9927,0.9927,0.289
+Category,SVM (Linear),1.0,1.0,1.0,1.0,35.813
+Priority,Logistic Regression,1.0,1.0,1.0,1.0,1.016
+Priority,Random Forest,0.8581,0.8676,0.8957,0.8679,0.253
+Priority,SVM (Linear),0.9987,0.9973,0.9993,0.9983,25.994

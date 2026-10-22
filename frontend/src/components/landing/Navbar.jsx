@@ -40,7 +40,7 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-8">
             <a href="/#features" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Features</a>
             <a href="/#how-it-works" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">How it works</a>
-            <a href="/#pricing" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Pricing</a>
+            <Link to="/model-evaluation" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Model Evaluation</Link>
             <a href="/#contact" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Contact</a>
           </div>
 
@@ -81,7 +81,7 @@ export default function Navbar() {
             <div className="px-4 pt-2 pb-6 space-y-1">
               <a href="/#features" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 text-base font-medium text-gray-300 hover:bg-surface-hover hover:text-white rounded-md">Features</a>
               <a href="/#how-it-works" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 text-base font-medium text-gray-300 hover:bg-surface-hover hover:text-white rounded-md">How it works</a>
-              <a href="/#pricing" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 text-base font-medium text-gray-300 hover:bg-surface-hover hover:text-white rounded-md">Pricing</a>
+              <Link to="/model-evaluation" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2 text-base font-medium text-gray-300 hover:bg-surface-hover hover:text-white rounded-md">Model Evaluation</Link>
               <div className="mt-4 pt-4 border-t border-surface-border flex flex-col gap-3">
                 <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="block w-full text-center px-4 py-2 text-base font-medium text-gray-300 bg-surface-hover rounded-md hover:text-white outline-none border border-surface-border">
                   Log in

@@ -1,0 +1,260 @@
+{
+  "metadata": {
+    "dataset_name": "customer_support_tickets.csv",
+    "dataset_path": "D:\\clg\\Degree\\Project\\TicketFlow AI\\backend\\ml\\data\\customer_support_tickets.csv",
+    "analysis_timestamp": "2026-07-30T23:41:13.869781",
+    "total_samples": 8469,
+    "total_features": 17,
+    "feature_names": [
+      "Ticket ID",
+      "Customer Name",
+      "Customer Email",
+      "Customer Age",
+      "Customer Gender",
+      "Product Purchased",
+      "Date of Purchase",
+      "Ticket Type",
+      "Ticket Subject",
+      "Ticket Description",
+      "Ticket Status",
+      "Resolution",
+      "Ticket Priority",
+      "Ticket Channel",
+      "First Response Time",
+      "Time to Resolution",
+      "Customer Satisfaction Rating"
+    ],
+    "dtypes": {
+      "Ticket ID": "int64",
+      "Customer Name": "object",
+      "Customer Email": "object",
+      "Customer Age": "int64",
+      "Customer Gender": "object",
+      "Product Purchased": "object",
+      "Date of Purchase": "object",
+      "Ticket Type": "object",
+      "Ticket Subject": "object",
+      "Ticket Description": "object",
+      "Ticket Status": "object",
+      "Resolution": "object",
+      "Ticket Priority": "object",
+      "Ticket Channel": "object",
+      "First Response Time": "object",
+      "Time to Resolution": "object",
+      "Customer Satisfaction Rating": "float64"
+    },
+    "memory_usage_mb": 9.904068946838379
+  },
+  "basic_statistics": {
+    "shape": {
+      "rows": 8469,
+      "columns": 17
+    },
+    "numeric_summary": {
+      "Ticket ID": {
+        "mean": 4235.0,
+        "median": 4235.0,
+        "std": 2444.9340481902573,
+        "min": 1.0,
+        "max": 8469.0,
+        "25%": 2118.0,
+        "75%": 6352.0
+      },
+      "Customer Age": {
+        "mean": 44.02680363679301,
+        "median": 44.0,
+        "std": 15.29611249888238,
+        "min": 18.0,
+        "max": 70.0,
+        "25%": 31.0,
+        "75%": 57.0
+      },
+      "Customer Satisfaction Rating": {
+        "mean": 2.991332611050921,
+        "median": 3.0,
+        "std": 1.407015861799693,
+        "min": 1.0,
+        "max": 5.0,
+        "25%": 2.0,
+        "75%": 4.0
+      }
+    },
+    "categorical_summary": {
+      "Customer Name": {
+        "unique_values": 8028,
+        "most_common": {
+          "Michael Garcia": 5,
+          "James Smith": 5,
+          "Michael White": 4,
+          "David Smith": 4,
+          "Joseph Brown": 4
+        },
+        "mode": "James Smith"
+      },
+      "Customer Email": {
+        "unique_values": 8320,
+        "most_common": {
+          "bsmith@example.com": 4,
+          "asmith@example.com": 4,
+          "rodriguezeric@example.net": 3,
+          "asmith@example.org": 3,
+          "drodriguez@example.com": 3
+        },
+        "mode": "asmith@example.com"
+      },
+      "Customer Gender": {
+        "unique_values": 3,
+        "most_common": {
+          "Male": 2896,
+          "Female": 2887,
+          "Other": 2686
+        },
+        "mode": "Male"
+      },
+      "Product Purchased": {
+        "unique_values": 42,
+        "most_common": {
+          "Canon EOS": 240,
+          "GoPro Hero": 228,
+          "Nest Thermostat": 225,
+          "Philips Hue Lights": 221,
+          "Amazon Echo": 221
+        },
+        "mode": "Canon EOS"
+      },
+      "Date of Purchase": {
+        "unique_values": 730,
+        "most_common": {
+          "2020-10-21": 24,
+          "2021-11-05": 24,
+          "2021-07-04": 23,
+          "2021-02-01": 23,
+          "2021-01-03": 22
+        },
+        "mode": "2020-10-21"
+      },
+      "Ticket Type": {
+        "unique_values": 5,
+        "most_common": {
+          "Refund request": 1752,
+          "Technical issue": 1747,
+          "Cancellation request": 1695,
+          "Product inquiry": 1641,
+          "Billing inquiry": 1634
+        },
+        "mode": "Refund request"
+      },
+      "Ticket Subject": {
+        "unique_values": 16,
+        "most_common": {
+          "Refund request": 576,
+          "Software bug": 574,
+          "Product compatibility": 567,
+          "Delivery problem": 561,
+          "Hardware issue": 547
+        },
+        "mode": "Refund request"
+      },
+      "Ticket Description": {
+        "unique_values": 8077,
+        "most_common": {
+          "I'm having an issue with the {product_purchased}. Please assist. I need assistance as soon as possible because it's affecting my work and productivity.": 25,
+          "I'm having an issue with the {product_purchased}. Please assist. I'm concerned about the security of my {product_purchased} and would like to ensure that my data is safe.": 25,
+          "I'm having an issue with the {product_purchased}. Please assist. This problem started occurring after the recent software update. I haven't made any other changes to the device.": 25,
+          "I'm having an issue with the {product_purchased}. Please assist. I've noticed a peculiar error message popping up on my {product_purchased} screen. It says '{error_message}'. What does it mean?": 24,
+          "I'm having an issue with the {product_purchased}. Please assist. I've already contacted customer support multiple times, but the issue remains unresolved.": 24
+        },
+        "mode": "I'm having an issue with the {product_purchased}. Please assist. I need assistance as soon as possible because it's affecting my work and productivity."
+      },
+      "Ticket Status": {
+        "unique_values": 3,
+        "most_common": {
+          "Pending Customer Response": 2881,
+          "Open": 2819,
+          "Closed": 2769
+        },
+        "mode": "Pending Customer Response"
+      },
+      "Resolution": {
+        "unique_values": 2769,
+        "most_common": {
+          "Case maybe show recently my computer follow.": 1,
+          "Agreement all response.": 1,
+          "Indicate history share product involve suggest site.": 1,
+          "Will western night executive movie two.": 1,
+          "After risk then executive kind figure sit necessary.": 1
+        },
+        "mode": "A former wrong interview then heart leg."
+      },
+      "Ticket Priority": {
+        "unique_values": 4,
+        "most_common": {
+          "Medium": 2192,
+          "Critical": 2129,
+          "High": 2085,
+          "Low": 2063
+        },
+        "mode": "Medium"
+      },
+      "Ticket Channel": {
+        "unique_values": 4,
+        "most_common": {
+          "Email": 2143,
+          "Phone": 2132,
+          "Social media": 2121,
+          "Chat": 2073
+        },
+        "mode": "Email"
+      },
+      "First Response Time": {
+        "unique_values": 5470,
+        "most_common": {
+          "2023-06-01 15:21:42": 3,
+          "2023-06-01 20:45:39": 3,
+          "2023-06-01 01:21:19": 3,
+          "2023-06-01 06:11:16": 2,
+          "2023-06-01 23:12:51": 2
+        },
+        "mode": "2023-06-01 01:21:19"
+      },
+      "Time to Resolution": {
+        "unique_values": 2728,
+        "most_common": {
+          "2023-06-01 17:14:42": 3,
+          "2023-06-01 21:29:45": 2,
+          "2023-06-01 07:29:06": 2,
+          "2023-06-01 21:15:52": 2,
+          "2023-06-01 14:53:35": 2
+        },
+        "mode": "2023-06-01 17:14:42"
+      }
+    }
+  },
+  "distribution_analysis": {},
+  "data_quality": {
+    "completeness": {
+      "missing_counts": {
+        "Resolution": 5700,
+        "First Response Time": 2819,
+        "Time to Resolution": 5700,
+        "Customer Satisfaction Rating": 5700
+      },
+      "missing_percentages": {
+        "Resolution": 67.3,
+        "First Response Time": 33.29,
+        "Time to Resolution": 67.3,
+        "Customer Satisfaction Rating": 67.3
+      },
+      "total_missing": 19919,
+      "completeness_score": 86.16476700492454
+    },
+    "duplicates": {
+      "count": 0,
+      "percentage": 0.0,
+      "unique_samples": 8469
+    },
+    "outliers": {}
+  },
+  "text_analysis": {},
+  "temporal_analysis": {}
+}

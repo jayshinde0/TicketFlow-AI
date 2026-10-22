@@ -30,7 +30,6 @@ export const useWebSocket = (userId) => {
         ws.onopen = () => {
           if (!isMounted) return;
           
-          console.log('✅ WebSocket connected');
           setIsConnected(true);
           reconnectAttempts = 0;
           
@@ -49,8 +48,6 @@ export const useWebSocket = (userId) => {
           
           try {
             const data = JSON.parse(event.data);
-            console.log('📨 WebSocket message:', data);
-            
             setLastMessage(data);
             setMessages(prev => [...prev.slice(-99), data]); // Keep last 100 messages
 
@@ -71,15 +68,12 @@ export const useWebSocket = (userId) => {
         ws.onclose = () => {
           if (!isMounted) return;
           
-          console.log('🔌 WebSocket disconnected');
           setIsConnected(false);
           wsRef.current = null;
           
           // Attempt to reconnect with exponential backoff
           if (reconnectAttempts < 10) {
             const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-            console.log(`🔄 Reconnecting in ${delay}ms...`);
-            
             reconnectTimeout = setTimeout(() => {
               reconnectAttempts += 1;
               connect();
@@ -158,7 +152,7 @@ export const useWebSocket = (userId) => {
         break;
       
       default:
-        console.log('Unhandled message type:', type);
+        // Unhandled message type
     }
   };
 
