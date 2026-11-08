@@ -43,13 +43,16 @@ deep-translator==1.11.4
 
 # ─── Transformers / Sentiment ─────────────────────────────────────────
 transformers==4.41.0
-# CPU-only torch wheel — specified in build.sh to use the correct index URL
-torch==2.3.0+cpu
+# CPU-only torch wheel
+torch==2.3.0
 tokenizers==0.19.1
 
 # ─── Vector Database ──────────────────────────────────────────────────
 # chromadb 0.5.23 — stable patch release compatible with typer>=0.9
+# Note: Using chroma-only client to avoid hnswlib build requirement on Windows
 chromadb==0.5.23
+# Avoid building hnswlib from source on Windows
+hnswlib==0.8.2
 
 # ─── Explainability ───────────────────────────────────────────────────
 lime==0.2.0.1

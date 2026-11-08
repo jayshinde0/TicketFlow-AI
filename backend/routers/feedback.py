@@ -36,44 +36,60 @@ async def approve_debug(ticket_id: str):
             return {"error": "ticket not found", "steps": results}
         results["step1_status"] = ticket.get("status")
         results["step1_category"] = (ticket.get("ai_analysis") or {}).get("category")
+    except (ConnectionError, KeyError) as e:
+        if isinstance(e, ConnectionError):
+            return {"crashed_at": "step1_get_ticket", "error": f"Database error: {str(e)}"}
+        else:
+            return {"crashed_at": "step1_get_ticket", "error": f"Missing field: {str(e)}"}
     except Exception as e:
-        return {"crashed_at": "step1_get_ticket", "error": str(e)}
+        return {"crashed_at": "step1_get_ticket", "error": f"Unexpected error: {str(e)}"}
 
     try:
         from services.retrieval_service import retrieval_service
 
         results["step2_retrieval_service"] = str(type(retrieval_service))
+    except ImportError as e:
+        return {"crashed_at": "step2_retrieval_service", "error": f"Import failed: {str(e)}"}
     except Exception as e:
-        return {"crashed_at": "step2_retrieval_service", "error": str(e)}
+        return {"crashed_at": "step2_retrieval_service", "error": f"Unexpected error: {str(e)}"}
 
     try:
         from services.audit_service import audit_service
 
         results["step3_audit_service"] = str(type(audit_service))
+    except ImportError as e:
+        return {"crashed_at": "step3_audit_service", "error": f"Import failed: {str(e)}"}
     except Exception as e:
-        return {"crashed_at": "step3_audit_service", "error": str(e)}
+        return {"crashed_at": "step3_audit_service", "error": f"Unexpected error: {str(e)}"}
 
     try:
         from services.notification_service import notification_service
 
         results["step4_notification_service"] = str(type(notification_service))
+    except ImportError as e:
+        return {"crashed_at": "step4_notification_service", "error": f"Import failed: {str(e)}"}
     except Exception as e:
-        return {"crashed_at": "step4_notification_service", "error": str(e)}
+        return {"crashed_at": "step4_notification_service", "error": f"Unexpected error: {str(e)}"}
 
     try:
         from services.retraining_service import retraining_service
 
         results["step5_retraining_service"] = str(type(retraining_service))
+    except ImportError as e:
+        return {"crashed_at": "step5_retraining_service", "error": f"Import failed: {str(e)}"}
     except Exception as e:
-        return {"crashed_at": "step5_retraining_service", "error": str(e)}
+        return {"crashed_at": "step5_retraining_service", "error": f"Unexpected error: {str(e)}"}
 
     try:
         from services.retraining_service import retraining_service
 
         should = await retraining_service.should_retrain()
         results["step6_should_retrain"] = should
-    except Exception as e:
-        return {"crashed_at": "step6_should_retrain_call", "error": str(e)}
+    except (ConnectionError, Exception) as e:
+        if isinstance(e, ConnectionError):
+            return {"crashed_at": "step6_should_retrain_call", "error": f"Database error: {str(e)}"}
+        else:
+            return {"crashed_at": "step6_should_retrain_call", "error": f"Unexpected error: {str(e)}"}
 
     return {"all_steps_passed": True, "steps": results}
 
@@ -163,9 +179,15 @@ async def _store_feedback(
         feedback_coll = get_feedback_collection()
         await feedback_coll.insert_one(feedback_doc)
         logger.debug(f"Feedback stored for ticket {ticket_id}")
+    except (ConnectionError, ValueError) as e:
+        if isinstance(e, ConnectionError):
+            logger.warning(f"[_store_feedback] insert failed for {ticket_id} (database error): {e}")
+        else:
+            logger.warning(f"[_store_feedback] insert failed for {ticket_id} (invalid data): {e}")
+        return
     except Exception as e:
-        logger.warning(f"[_store_feedback] insert failed for {ticket_id}: {e}")
-        return  # don't continue if we can't even store feedback
+        logger.warning(f"[_store_feedback] insert failed for {ticket_id} (unexpected): {e}")
+        return
 
     # Step B — check retraining threshold (non-fatal)
     try:
@@ -174,8 +196,13 @@ async def _store_feedback(
         should_retrain = await retraining_service.should_retrain()
         if should_retrain:
             logger.info("Feedback threshold reached — retraining should be triggered.")
-    except Exception as e:
-        logger.warning(f"[_store_feedback] retraining check failed (non-fatal): {e}")
+    except (ImportError, ConnectionError, Exception) as e:
+        if isinstance(e, ImportError):
+            logger.warning(f"[_store_feedback] retraining check failed (import error): {e}")
+        elif isinstance(e, ConnectionError):
+            logger.warning(f"[_store_feedback] retraining check failed (database error): {e}")
+        else:
+            logger.warning(f"[_store_feedback] retraining check failed (unexpected): {e}")
 
 
 async def _add_to_chromadb(
@@ -207,8 +234,15 @@ async def _add_to_chromadb(
             resolution_time_hours=resolution_time_hours,
         )
         logger.debug(f"Ticket {ticket_id} added to ChromaDB")
+    except (ConnectionError, TimeoutError) as e:
+        if isinstance(e, ConnectionError):
+            logger.warning(f"[_add_to_chromadb] ChromaDB connection failed (non-fatal): {e}")
+        else:
+            logger.warning(f"[_add_to_chromadb] ChromaDB timeout failed (non-fatal): {e}")
+    except ValueError as e:
+        logger.warning(f"[_add_to_chromadb] invalid data for ChromaDB (non-fatal): {e}")
     except Exception as e:
-        logger.warning(f"[_add_to_chromadb] ChromaDB update failed (non-fatal): {e}")
+        logger.warning(f"[_add_to_chromadb] ChromaDB update failed (unexpected): {e}")
 
 
 async def _audit_action(ticket_id: str, action: str, note: str) -> None:
@@ -217,8 +251,13 @@ async def _audit_action(ticket_id: str, action: str, note: str) -> None:
         from services.audit_service import audit_service
 
         await audit_service.update_agent_action(ticket_id, action, note)
-    except Exception as e:
-        logger.warning(f"[_audit_action] Audit log failed (non-fatal): {e}")
+    except (ImportError, ConnectionError, Exception) as e:
+        if isinstance(e, ImportError):
+            logger.warning(f"[_audit_action] Audit log failed (import error): {e}")
+        elif isinstance(e, ConnectionError):
+            logger.warning(f"[_audit_action] Audit log failed (database error): {e}")
+        else:
+            logger.warning(f"[_audit_action] Audit log failed (unexpected): {e}")
 
 
 async def _notify_resolved(ticket_id: str, action: str) -> None:
@@ -227,8 +266,15 @@ async def _notify_resolved(ticket_id: str, action: str) -> None:
         from services.notification_service import notification_service
 
         await notification_service.notify_ticket_resolved(ticket_id, {"action": action})
+    except (ImportError, ConnectionError, TimeoutError) as e:
+        if isinstance(e, ImportError):
+            logger.warning(f"[_notify_resolved] Notification failed (import error): {e}")
+        elif isinstance(e, ConnectionError):
+            logger.warning(f"[_notify_resolved] Notification failed (connection error): {e}")
+        else:
+            logger.warning(f"[_notify_resolved] Notification failed (timeout): {e}")
     except Exception as e:
-        logger.warning(f"[_notify_resolved] Notification failed (non-fatal): {e}")
+        logger.warning(f"[_notify_resolved] Notification failed (unexpected): {e}")
 
 
 # ─── POST /{ticket_id}/approve ────────────────────────────────────────

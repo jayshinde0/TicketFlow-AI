@@ -70,8 +70,12 @@ class ClassifierService:
 
             self._loaded = True
 
+        except ImportError as e:
+            logger.error(f"Error loading classifier models (missing module): {e}")
+        except FileNotFoundError as e:
+            logger.error(f"Error loading classifier models (file not found): {e}")
         except Exception as e:
-            logger.error(f"Error loading classifier models: {e}")
+            logger.error(f"Error loading classifier models (unexpected): {e}")
 
     def _keyword_fallback_category(self, text: str) -> str:
         """
