@@ -65,8 +65,11 @@ class RetrainingService:
             collection = get_feedback_collection()
             count = await collection.count_documents({"used_for_retraining": False})
             return count
-        except Exception as e:
-            logger.warning(f"count_pending_feedback failed: {e}")
+        except (ConnectionError, Exception) as e:
+            if isinstance(e, ConnectionError):
+                logger.warning(f"count_pending_feedback failed (database error): {e}")
+            else:
+                logger.warning(f"count_pending_feedback failed (unexpected): {e}")
             return 0
 
     async def should_retrain(self) -> bool:
@@ -79,8 +82,11 @@ class RetrainingService:
             threshold = settings.FEEDBACK_RETRAIN_THRESHOLD
             logger.debug(f"Pending feedback: {pending}/{threshold}")
             return pending >= threshold
-        except Exception as e:
-            logger.warning(f"should_retrain check failed (non-fatal): {e}")
+        except (ConnectionError, Exception) as e:
+            if isinstance(e, ConnectionError):
+                logger.warning(f"should_retrain check failed (database error): {e}")
+            else:
+                logger.warning(f"should_retrain check failed (unexpected): {e}")
             return False
 
     async def get_feedback_for_retraining(self) -> list:
@@ -95,8 +101,11 @@ class RetrainingService:
             for doc in docs:
                 doc.pop("_id", None)
             return docs
-        except Exception as e:
-            logger.error(f"get_feedback_for_retraining failed: {e}")
+        except (ConnectionError, Exception) as e:
+            if isinstance(e, ConnectionError):
+                logger.error(f"get_feedback_for_retraining failed (database error): {e}")
+            else:
+                logger.error(f"get_feedback_for_retraining failed (unexpected): {e}")
             return []
 
     async def mark_feedback_used(self) -> int:
@@ -114,8 +123,11 @@ class RetrainingService:
             )
             logger.info(f"Marked {result.modified_count} feedback records as used.")
             return result.modified_count
-        except Exception as e:
-            logger.error(f"mark_feedback_used failed: {e}")
+        except (ConnectionError, Exception) as e:
+            if isinstance(e, ConnectionError):
+                logger.error(f"mark_feedback_used failed (database error): {e}")
+            else:
+                logger.error(f"mark_feedback_used failed (unexpected): {e}")
             return 0
 
     async def get_retraining_status(self) -> dict:
@@ -143,8 +155,11 @@ class RetrainingService:
                 ),
                 "last_f1": (active_model.get("category_f1") if active_model else None),
             }
-        except Exception as e:
-            logger.warning(f"get_retraining_status failed: {e}")
+        except (ConnectionError, Exception) as e:
+            if isinstance(e, ConnectionError):
+                logger.warning(f"get_retraining_status failed (database error): {e}")
+            else:
+                logger.warning(f"get_retraining_status failed (unexpected): {e}")
             return {
                 "current_version": "v1",
                 "pending_feedback": 0,
@@ -197,8 +212,11 @@ class RetrainingService:
                 skip_sla=False,
                 feedback_docs=feedback_docs,
             )
+        except (ValueError, RuntimeError) as e:
+            logger.error(f"train_all_models failed (training error): {e}")
+            return {"success": False, "error": str(e)}
         except Exception as e:
-            logger.error(f"train_all_models failed: {e}")
+            logger.error(f"train_all_models failed (unexpected): {e}")
             return {"success": False, "error": str(e)}
 
         # Compare with current model
@@ -211,8 +229,11 @@ class RetrainingService:
             version_collection = get_model_versions_collection()
             current_doc = await version_collection.find_one({"is_active": True})
             old_f1 = current_doc.get("category_f1", 0.0) if current_doc else 0.0
-        except Exception as e:
-            logger.warning(f"Failed to load current model metrics: {e}")
+        except (ConnectionError, Exception) as e:
+            if isinstance(e, ConnectionError):
+                logger.warning(f"Failed to load current model metrics (database error): {e}")
+            else:
+                logger.warning(f"Failed to load current model metrics (unexpected): {e}")
             old_f1 = 0.0
 
         # Promote if within tolerance
@@ -230,8 +251,11 @@ class RetrainingService:
                     {"is_active": True},
                     {"$set": {"is_active": False}},
                 )
-            except Exception as e:
-                logger.warning(f"Failed to deactivate old model version: {e}")
+            except (ConnectionError, Exception) as e:
+                if isinstance(e, ConnectionError):
+                    logger.warning(f"Failed to deactivate old model version (database error): {e}")
+                else:
+                    logger.warning(f"Failed to deactivate old model version (unexpected): {e}")
 
             logger.info(
                 f"Model promoted: {current_version} → {new_version} "
@@ -264,8 +288,11 @@ class RetrainingService:
 
             version_collection = get_model_versions_collection()
             await version_collection.insert_one(version_doc)
-        except Exception as e:
-            logger.warning(f"Failed to save version doc to MongoDB: {e}")
+        except (ConnectionError, Exception) as e:
+            if isinstance(e, ConnectionError):
+                logger.warning(f"Failed to save version doc to MongoDB (database error): {e}")
+            else:
+                logger.warning(f"Failed to save version doc to MongoDB (unexpected): {e}")
 
         # Mark feedback as used only if promoted
         if promoted:
