@@ -51,8 +51,8 @@ tokenizers==0.19.1
 # chromadb 0.5.23 — stable patch release compatible with typer>=0.9
 # Note: Using chroma-only client to avoid hnswlib build requirement on Windows
 chromadb==0.5.23
-# Avoid building hnswlib from source on Windows
-hnswlib==0.8.2
+# Use latest compatible hnswlib for Python 3.12
+hnswlib==0.8.0
 
 # ─── Explainability ───────────────────────────────────────────────────
 lime==0.2.0.1
